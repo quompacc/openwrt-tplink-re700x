@@ -83,7 +83,7 @@ jobs:
           OUT=bin/targets/qualcommax/ipq50xx
           UBI=$(ls "$OUT"/*tplink_re700x-squashfs-factory.ubi)
           mkdir -p rel
-          ./re700x-factory-pack.py --os "$UBI" \
+          python3 re700x-factory-pack.py --os "$UBI" \
             --bump-version "9.9.9 Build 20991231 Rel. 99999" \
             -o "rel/re700x-$T-factory-webflash.bin"
           cp "$OUT"/*tplink_re700x-squashfs-sysupgrade.bin "rel/re700x-$T-sysupgrade.bin"
