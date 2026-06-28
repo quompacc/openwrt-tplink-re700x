@@ -8,16 +8,21 @@
 > into a fully-working OpenWrt 6.12.91. The full end-user path — uploading the
 > image through the **stock TP-Link web GUI** — worked on one real RE700X. See §8.
 >
-> ⚠️ **BUT it later bricked a second unit:** a clean stock web-GUI flash (no UART)
-> completed without error yet the device booted nothing and is recoverable only
-> via UART (this bootloader has no button/TFTP recovery). **Confirmed cause** (via
-> #2's UART: `tp_boot_idx=1`): the stock flasher wrote OpenWrt to slot `rootfs_1`
-> and set `tp_boot_idx=1`, but the FIT cmdline hardcodes `ubi.mtd=rootfs` (slot 0,
-> `CONFIG_CMDLINE_FORCE`) → kernel attaches the wrong slot → no boot. So the flash
-> only works if the device was on stock-slot-1 pre-flash (that was #1). Recover via
-> UART (`setenv tp_boot_idx 0; saveenv`). **Fix: make the rootfs slot match the
-> booted slot (stop forcing `ubi.mtd=rootfs`).** **Treat the stock web-GUI install
-> as experimental — UART + NAND backup mandatory.** `sysupgrade` is unaffected.
+> ✅ **The brick is FIXED (v1.5).** It bricked a second unit because the kernel
+> cmdline was force-set (`CONFIG_CMDLINE_FORCE` + `ubi.mtd=rootfs`): the stock
+> flasher wrote OpenWrt to slot `rootfs_1` and set `tp_boot_idx=1`, but the forced
+> cmdline still attached slot 0 → wrong root → no boot (recoverable only via UART;
+> no button/TFTP recovery). A UART diagnostic (a `CONFIG_CMDLINE_FROM_BOOTLOADER`
+> build) confirmed the stock U-Boot already passes a slot-correct `ubi.mtd=rootfs_1`
+> — only its `root=mtd:ubi_rootfs` was unmountable by mainline. **Fix:** drop the
+> `CMDLINE_FORCE` hack from `config-6.12` and add
+> `bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=4M"` to the DTS
+> `/chosen`; the kernel inherits the slot-correct `ubi.mtd` and the appended
+> `root=` wins. Verified on hardware: OpenWrt boots cleanly from **both** slots.
+> **Still pending:** the literal stock→web-GUI re-test (official firmware is
+> AES-encrypted "Cloud"; the stock NAND backup was lost) — logically covered, since
+> `nvrammanager` writes the slot byte-identically to what was tested (`ubiformat
+> -o 0x1814 -S <field0>`) and sets the same `tp_boot_idx`. `sysupgrade` is unaffected.
 
 ---
 

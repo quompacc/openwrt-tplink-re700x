@@ -677,3 +677,63 @@ lines in logread are harmless (ath11k doesn't support set-antenna).
 
 Result: the RE700X port is feature-complete - NAND boot, ethernet, LEDs,
 buttons, 2.4G and 5G Wi-Fi 6 all working.
+
+## Dual-boot brick FIXED (2026-06-28)
+
+The web-GUI factory flash bricked a second unit. Cause (confirmed v1.5): the
+kernel cmdline was force-set in `target/linux/qualcommax/config-6.12`
+(`CONFIG_CMDLINE_FORCE=y` + `ubi.mtd=rootfs`). The stock flasher writes OpenWrt
+into the inactive dual-boot slot `rootfs_1` (mtd12) and sets U-Boot
+`tp_boot_idx=1`; U-Boot then loads the slot-1 kernel, but the forced cmdline
+still made the kernel attach slot 0 (`rootfs`/mtd11) -> wrong/old root -> no
+boot. No button/TFTP recovery on this bootloader; only UART.
+
+### Diagnosis (safe, slot-1-only, slot-0 kept as fallback)
+Built a diagnostic with `CONFIG_CMDLINE_FROM_BOOTLOADER=y` (so the kernel uses
+U-Boot's cmdline, revealing it), wrote it to slot 1 only
+(`ubiformat /dev/mtd12 -f diag.ubi -y`), set `tp_boot_idx=1` at the U-Boot
+prompt, booted. The kernel printed:
+
+    Kernel command line: ubi.mtd=rootfs_1 root=mtd:ubi_rootfs rootfstype=squashfs rootwait
+
+i.e. the stock U-Boot ALREADY passes a slot-correct `ubi.mtd=rootfs_1`. The
+kernel even attached mtd12 and created `ubiblock0_1`; the ONLY failure was
+`root=mtd:ubi_rootfs` (mainline can't mount a UBI volume by that syntax) ->
+panic/bootloop. Recovered with `setenv tp_boot_idx 0; saveenv`.
+
+### The fix (idiomatic qualcommax, no kernel patch)
+The target already carries `patches-6.12/0911-arm64-cmdline-replacement.patch`,
+which adds `bootargs-append` / `bootargs-find/replace` to `/chosen` in
+`early_init_dt_scan_chosen` (other ipq5018 boards - ax830, mx2000, ... - use
+`bootargs-append`). arm64's Kconfig has NO `CMDLINE_EXTEND` (only FORCE /
+FROM_BOOTLOADER), so the FORCE->EXTEND idea silently falls back to FORCE - dead
+end. Instead:
+1. Removed the `CONFIG_CMDLINE`/`CMDLINE_FORCE` lines from `config-6.12` (revert
+   to generic empty cmdline; this hack was added in 7f70639f7e).
+2. DTS `/chosen`: `bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=4M"`.
+
+The kernel inherits U-Boot's slot-correct `ubi.mtd` and the appended `root=`
+wins over `root=mtd:ubi_rootfs` (Linux uses the last `root=`); `coherent_pool=4M`
+keeps the ath11k 2.4 GHz DMA happy.
+
+### Validated on hardware
+Wrote the fixed image to BOTH slots and booted each:
+- Slot 1 (`tp_boot_idx=1`): `ubi.mtd=rootfs_1 ... root=/dev/ubiblock0_1 coherent_pool=4M`,
+  `ubi0: attached mtd12 (name "rootfs_1")`, clean squashfs root mount, both radios.
+- Slot 0 (`tp_boot_idx=0`): `ubi.mtd=rootfs ... root=/dev/ubiblock0_1 coherent_pool=4M`,
+  `ubi0: attached mtd11 (name "rootfs")`, clean mount, both radios.
+So OpenWrt boots from whichever slot the flasher targets -> brick dead.
+
+### Still pending
+The *literal* stock->web-GUI install was not re-run: the official firmware
+(`re700xv1_eu-...ver1-3-15...`) is AES-encrypted "Cloud" type (header
+`fw-type:Cloud`, high-entropy payload, no UBI#/squashfs), and the original stock
+NAND backup was lost. So we couldn't restore stock to drive `nvrammanager`. It's
+logically covered - `nvrammanager` does `ubiformat /dev/mtd<inactive> -o 0x1814
+-S <field0>` of the same payload (byte-identical to the tested `factory.ubi`) and
+sets the same `tp_boot_idx` - but a full stock-device web-GUI flash remains the
+final belt-and-suspenders check.
+
+### Latent follow-up
+`platform.sh` sysupgrade always sets `CI_UBIPART=rootfs` (slot 0), ignoring the
+booted slot - if you run from slot 1 and sysupgrade, it writes the wrong slot.

@@ -26,7 +26,16 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyMSM0,115200,n8 coherent_pool=2M";
+		/*
+		 * Slot-aware dual-boot: the stock U-Boot passes a slot-correct
+		 * cmdline ("ubi.mtd=rootfs" or "ubi.mtd=rootfs_1" depending on
+		 * tp_boot_idx) but with "root=mtd:ubi_rootfs", which mainline
+		 * cannot mount. Inherit U-Boot's slot-correct ubi.mtd and only
+		 * append our own root= (last root= wins, overriding the bogus
+		 * one) plus coherent_pool for the ath11k 2.4 GHz DMA. This boots
+		 * OpenWrt from whichever slot the flasher wrote -> no more brick.
+		 */
+		bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=4M";
 		stdout-path = "serial0:115200n8";
 	};
 

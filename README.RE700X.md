@@ -4,17 +4,17 @@ A work-in-progress OpenWrt port for the **TP-Link RE700X** Wi-Fi 6 range
 extender (EU v1.0), based on the `qualcommax` target. Built on a full OpenWrt
 tree; this README covers only the RE700X-specific port.
 
-> ⚠️ **Status: working — but the stock web-GUI install is EXPERIMENTAL and has
-> bricked a unit.** Once OpenWrt is installed it runs great, and `sysupgrade`
-> (OpenWrt→OpenWrt) is safe and repeatable. **But the *initial* flash from the
-> stock web GUI bricked a second, healthy device** (clean stock, no UART) — it
-> booted nothing and is recoverable only via UART. This bootloader has **no
-> button/TFTP recovery**. **Do not flash from stock without UART access and a
-> full NAND backup.** **Confirmed cause** (via UART): the stock flasher can write
-> OpenWrt into dual-boot slot `rootfs_1` and set `tp_boot_idx=1`, but the FIT
-> cmdline hardcodes `ubi.mtd=rootfs` (slot 0, `CONFIG_CMDLINE_FORCE`) → kernel
-> attaches the wrong slot → no boot. Recover via UART: `setenv tp_boot_idx 0;
-> saveenv`. Fix: make the rootfs slot match the booted slot. See §*Install from stock*.
+> ✅ **Status: working — and the dual-boot brick is FIXED (v1.5).** OpenWrt runs
+> great and `sysupgrade` (OpenWrt→OpenWrt) is safe and repeatable. The brick that
+> killed a second unit — the forced kernel cmdline (`CONFIG_CMDLINE_FORCE` +
+> `ubi.mtd=rootfs`) attaching the **wrong** dual-boot slot when the flasher wrote
+> OpenWrt into `rootfs_1` and set `tp_boot_idx=1` — is resolved. OpenWrt now boots
+> from **either** slot, validated on hardware from both `rootfs` and `rootfs_1`.
+> The *literal* stock→web-GUI reproduction is still pending (the official firmware
+> is AES-encrypted and the stock NAND backup was lost), so for a **first** flash
+> from stock it remains prudent to have UART + a NAND backup until that final
+> end-to-end check is done. This bootloader has **no button/TFTP recovery**. See
+> §*The dual-boot brick fix* and §*Install from stock*.
 
 ## What works
 
@@ -26,7 +26,7 @@ tree; this README covers only the RE700X-specific port.
 | 2.4 GHz Wi-Fi 6 (IPQ5018) | ✅ |
 | 5 GHz Wi-Fi 6 (QCN6122) | ✅ |
 | Both radios simultaneously | ✅ (needs the ath11k DP-ring shrink — see *RAM note*) |
-| Web-UI-flashable factory image | ⚠️ experimental (bricked a unit) |
+| Web-UI-flashable factory image | ✅ brick fixed (v1.5); literal stock→web-GUI re-test pending |
 
 Both radios run simultaneously and stay stable **thanks to the ath11k DP-ring-size
 patch** — ~48 MB free on the 256 MB device. Without that patch the oversized RX
@@ -81,15 +81,14 @@ Output in `bin/targets/qualcommax/ipq50xx/`:
 
 ## Install from stock via web GUI (EXPERIMENTAL — have UART ready)
 
-> ⚠️ **This has bricked a device.** It worked on one unit and left a second,
-> healthy unit dead (booted nothing) after a clean stock web-GUI flash with no
-> UART attached. There is **no button/TFTP recovery** on this bootloader, so a
-> failed flash needs UART to recover. Suspected cause (pending a serial log):
-> the image's kernel cmdline hardcodes `ubi.mtd=rootfs` (dual-boot slot 0); if
-> the stock flasher writes OpenWrt into the *other* slot (`rootfs_1`) and boots
-> it, the kernel attaches the wrong UBI and root is not found → no boot.
-> **Only do this with UART access and a full NAND backup, and treat it as a
-> recoverable experiment — not plug-and-play.**
+> ✅ **The brick that hit a second unit is fixed (v1.5)** — see §*The dual-boot
+> brick fix*. The cause (the forced kernel cmdline attaching the wrong dual-boot
+> slot) is resolved, and OpenWrt now boots from whichever slot the flasher writes
+> (validated on hardware from both slots). The *literal* stock→web-GUI install
+> hasn't been re-run end-to-end yet (official firmware is AES-encrypted; the stock
+> backup was lost), so for the **first** flash on a given unit it's still prudent
+> to have UART + a full NAND backup. This bootloader has **no button/TFTP
+> recovery**. Recover a mis-set boot slot via UART: `setenv tp_boot_idx 0; saveenv`.
 
 The flow — flash from the **stock** TP-Link web interface:
 
@@ -135,6 +134,40 @@ The stock U-Boot selects the FIT config by name, so the build sets
 `DEVICE_DTS_CONFIG = config@mp02.1`; the UBI partition is `rootfs` (not
 `firmware`).
 
+## The dual-boot brick fix (v1.5)
+
+The RE700X has two rootfs slots (`rootfs` = mtd11, `rootfs_1` = mtd12) and the
+stock flasher writes OpenWrt into the **inactive** slot, then points U-Boot's
+boot-alter (`tp_boot_idx`) at it. The original port force-set the kernel cmdline
+(`CONFIG_CMDLINE_FORCE` + `ubi.mtd=rootfs`), so a unit flashed into `rootfs_1`
+booted the slot-1 kernel but the kernel still attached **slot 0** → root not
+found → brick (no button/TFTP recovery on this bootloader).
+
+The fix is the idiomatic qualcommax approach (no kernel patch needed — the
+`bootargs-append` / `bootargs-find/replace` mechanism is already provided by
+`patches-6.12/0911-arm64-cmdline-replacement.patch`, and the other ipq5018
+boards use it):
+
+1. **`target/linux/qualcommax/config-6.12`** — dropped the RE700X
+   `CONFIG_CMDLINE="…" / CONFIG_CMDLINE_FORCE=y` hack, reverting to the generic
+   empty cmdline so the kernel honours the bootloader-provided one.
+2. **DTS `/chosen`** — replaced the hard `bootargs` with
+   `bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=4M"`.
+
+A UART diagnostic (a `CONFIG_CMDLINE_FROM_BOOTLOADER` build) proved the stock
+U-Boot already passes a **slot-correct** `ubi.mtd=rootfs` / `ubi.mtd=rootfs_1`
+(per `tp_boot_idx`); its only problem was `root=mtd:ubi_rootfs`, which mainline
+can't mount. The kernel now inherits that slot-correct `ubi.mtd` and our appended
+`root=/dev/ubiblock0_1` wins (Linux uses the last `root=`). Result, verified on
+hardware: OpenWrt boots cleanly from **both** slots, both radios up.
+
+**Caveat:** the *literal* stock→web-GUI install was not re-run this round (the
+official firmware is AES-encrypted "Cloud" type and the stock NAND backup was
+lost). The slot the web-GUI flasher writes is byte-identical to what was tested
+(`nvrammanager` does `ubiformat -o 0x1814 -S <field0>` of the same payload + the
+same `tp_boot_idx`), so it's logically covered — but a full stock-device web-GUI
+flash remains the final confirmation.
+
 ## The 5 GHz / QCN6122 fix (for other IPQ5018+QCN6122 ports)
 
 The QCN6122 is not a PCIe card — it boots as a protection domain (userpd2) on
@@ -155,12 +188,16 @@ versioned images.
 
 ## Roadmap
 
+- [x] **Fix the dual-boot brick** (v1.5): the kernel cmdline is now slot-aware —
+      it inherits the stock U-Boot's slot-correct `ubi.mtd` and appends `root=`
+      via the DTS `/chosen` `bootargs-append`, instead of forcing `ubi.mtd=rootfs`.
+      Validated on hardware booting cleanly from both `rootfs` and `rootfs_1`.
 - [~] Factory image flashable from the stock TP-Link web UI (no soldering) —
-      `re700x-factory-pack.py` works (one unit installed fine), **but bricked a
-      second unit** → experimental until fixed.
-- [ ] Fix the dual-boot brick: make the kernel cmdline slot-aware (stop
-      hardcoding `ubi.mtd=rootfs`) so OpenWrt boots from whichever slot the stock
-      flasher writes. Confirm the cause via #2's UART serial log.
+      `re700x-factory-pack.py` works and the brick is fixed; the *literal*
+      stock→web-GUI install still needs one final end-to-end re-test (blocked this
+      round: official firmware is AES-encrypted, stock NAND backup lost).
+- [ ] Fix sysupgrade slot-awareness: `platform.sh` always writes
+      `CI_UBIPART=rootfs` (slot 0), ignoring the booted slot.
 - [ ] Integrate the `FwUpTbl` format into `tplink-safeloader` so `make` emits a
       ready-to-flash `factory.bin` directly (instead of the separate packer).
 - [ ] WPA3 (SAE) defaults.

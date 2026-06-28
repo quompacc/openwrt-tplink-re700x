@@ -6,9 +6,40 @@ the `squashfs-sysupgrade.bin` built from that commit. Doc-only changes
 (NOTES/CHANGELOG) do not alter the firmware image, so a tagged image's sha256
 stays valid across later documentation commits.
 
-> ⚠️ **The stock web-GUI factory install is experimental and has bricked a unit.**
-> Only flash from stock with UART access + a NAND backup. `sysupgrade`
-> (OpenWrt→OpenWrt) is safe. See `README.RE700X.md`.
+> ✅ **The dual-boot brick is FIXED as of v1.5** — OpenWrt now boots from either
+> flash slot, validated on real hardware. The *literal* stock web-GUI
+> reproduction is still pending (the official firmware is AES-encrypted and the
+> stock NAND backup was lost), so for the very first flash from stock keep UART
+> + a NAND backup handy until someone re-runs a full stock→web-GUI install.
+> `sysupgrade` (OpenWrt→OpenWrt) is safe. See `README.RE700X.md`.
+
+## v1.5 — 2026-06-28 (tag `re700x-v1.5`)
+
+**Dual-boot brick FIXED** — OpenWrt boots from whichever flash slot the installer
+writes, killing the stock-web-GUI brick.
+
+- **Root cause** (confirmed via UART): the kernel cmdline was force-set
+  (`CONFIG_CMDLINE_FORCE` + `ubi.mtd=rootfs`), so when the stock flasher wrote
+  OpenWrt into the inactive dual-boot slot `rootfs_1` and set `tp_boot_idx=1`,
+  the kernel still attached slot 0 (`rootfs`) → wrong/old root → no boot.
+- **Diagnosis** (UART, safe slot-1-only test): a `CONFIG_CMDLINE_FROM_BOOTLOADER`
+  build showed the stock U-Boot *already* passes a slot-correct `ubi.mtd=rootfs_1`
+  — only with an unmountable `root=mtd:ubi_rootfs`, which is the sole cause of the
+  panic/bootloop.
+- **Fix** (idiomatic qualcommax, **no kernel patch**): removed the RE700X
+  `CMDLINE_FORCE` hack from `target/linux/qualcommax/config-6.12`, and in the DTS
+  `/chosen` added `bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=4M"`
+  (same mechanism the other ipq5018 boards use). The kernel now inherits U-Boot's
+  slot-correct `ubi.mtd` and the appended `root=` wins over `root=mtd:ubi_rootfs`.
+- **Validated on real hardware:** clean boot from **both** slots (`rootfs` *and*
+  `rootfs_1`), both radios up, `coherent_pool=4M` honoured. So no matter which slot
+  the web-GUI flasher targets, OpenWrt boots.
+- **Still pending:** the *literal* stock→web-GUI install couldn't be re-run this
+  round (official firmware is AES-encrypted "Cloud" type; the stock backup was
+  lost). It's logically covered — `nvrammanager` writes the slot byte-identically
+  to what was tested and sets the same `tp_boot_idx` — but a real stock-device
+  web-GUI flash remains the final belt-and-suspenders check.
+- sha256 (sysupgrade): see the release's `SHA256SUMS` (CI-built).
 
 ## v1.4 — 2026-05-31 (tag `re700x-v1.4`)
 

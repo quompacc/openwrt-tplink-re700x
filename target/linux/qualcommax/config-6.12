@@ -623,6 +623,3 @@ CONFIG_ZONE_DMA32=y
 CONFIG_ZSTD_COMMON=y
 CONFIG_ZSTD_COMPRESS=y
 CONFIG_ZSTD_DECOMPRESS=y
-CONFIG_CMDLINE="console=ttyMSM0,115200n8 ubi.mtd=rootfs root=/dev/ubiblock0_1 rootfstype=squashfs rootwait coherent_pool=4M"
-# CONFIG_CMDLINE_FROM_BOOTLOADER is not set
-CONFIG_CMDLINE_FORCE=y
