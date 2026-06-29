@@ -60,7 +60,16 @@ ath11k DP rings (TX-comp 32768→2048, RXDMA-buf 4096→1024, monitor rings
 - SoC: Qualcomm **IPQ5018** (2.4 GHz built-in) + **QCN6122** (5 GHz)
 - RAM: 256 MiB · Flash: 128 MiB SPI-NAND (GigaDevice F50D1G41LB)
 - Ethernet PHY: Realtek RTL8211F · 1× Gigabit port
+- Power: 100–240 V AC, 50/60 Hz, 0.4 A (internal PSU, wall-plug)
 - Bootloader: TP-Link U-Boot 2016.01 (console 115200 8N1, break string `tpl`)
+
+### UART serial console
+
+3.3 V TTL, **115200 8N1**. The unpopulated 4-pad header sits next to the
+RF-shield edge; pads top-to-bottom are **TX, RX, GND, VCC** (silkscreen
+labelled). Use a 3.3 V adapter and leave VCC disconnected.
+
+![RE700X UART header — TX / RX / GND / VCC top-to-bottom](doc/re700x-uart-header.jpg)
 
 ## Building
 
@@ -120,6 +129,9 @@ reverse-engineered from the stock `nvrammanager` and the whole flash path is
 verified on real hardware — details in `RE700X-FACTORY-IMAGE-PROBLEM.md`.
 
 ## Alternative: UART / TFTP (recovery or development)
+
+UART header location and pinout: see [§Hardware → UART serial console](#uart-serial-console)
+(3.3 V TTL, 115200 8N1; pads TX/RX/GND/VCC).
 
 1. **Back up the stock NAND first** (via U-Boot or a running system). Keep it.
 2. Test in RAM via U-Boot/TFTP before touching flash:
