@@ -1,0 +1,126 @@
+====== TP-Link RE700X ======
+
+The TP-Link RE700X is a dual-band Wi-Fi 6 (AX3000) wall-plug range extender
+based on the Qualcomm IPQ5018 SoC with a QCN6122 companion radio for 5 GHz.
+
+<WRAP center round important>
+Support is provided out of tree / via PR — see the "Installation" section.
+Flashing replaces the stock firmware. The stock bootloader has **no
+button/TFTP recovery**, so have a UART console ready as a fallback.
+</WRAP>
+
+{{tag>qualcommax ipq50xx ipq5018 qcn6122 wifi6 802.11ax tp-link rangeextender}}
+
+===== Supported Versions =====
+
+^ Version ^ OpenWrt Version ^ Model Specific Notes ^
+| v1 (EU)  | (PR openwrt/openwrt#23982) | dual-boot NAND; web-flashable factory image |
+
+===== Hardware Highlights =====
+
+^ SoC            | Qualcomm IPQ5018 (dual-core ARM Cortex-A53) |
+^ RAM            | 256 MiB |
+^ Flash          | 128 MiB SPI-NAND (GigaDevice F50D1G41LB) |
+^ Wi-Fi 2.4 GHz  | IPQ5018 built-in, 802.11b/g/n/ax 2x2 |
+^ Wi-Fi 5 GHz    | QCN6122, 802.11a/n/ac/ax 2x2 |
+^ Ethernet       | 1x Gigabit (Realtek RTL8211F PHY) |
+^ USB            | none |
+^ Buttons        | Reset, WPS |
+^ LEDs           | 5 |
+^ Power          | 100–240 V AC, 50/60 Hz, 0.4 A (internal PSU, wall-plug) |
+^ Serial (UART)  | yes, 3.3 V TTL, 115200 8N1 |
+
+===== Installation =====
+
+Two routes — no soldering is required for the web-GUI route.
+
+==== Method A: stock web GUI (factory image) ====
+
+  - Obtain ''openwrt-qualcommax-ipq50xx-tplink_re700x-squashfs-factory-webflash.bin''
+    (release asset, or build it — see below).
+  - On the stock RE700X: web UI → **System Tools → Firmware Upgrade**.
+  - Upload the ''*-factory-webflash.bin'' and confirm.
+  - The stock flasher writes OpenWrt into the inactive dual-boot slot; your
+    stock firmware remains in the other slot as a fallback.
+
+The image is wrapped into the stock "nvrammanager" upload container by
+''scripts/tplink-re700x-factory.py'' (the same TP-Link safeloader/"tplink2022"
+family as ''scripts/tplink-mkimage-2022.py'').
+
+==== Method B: UART / TFTP (recovery or development) ====
+
+  - **Back up the stock NAND first** and keep it.
+  - RAM-boot the initramfs via U-Boot/TFTP before touching flash: <code>
+setenv serverip <host>; setenv ipaddr <dev>
+tftpboot 0x44000000 ...-initramfs-uImage.itb
+bootm 0x44000000</code>
+  - From the booted OpenWrt: ''sysupgrade -n ...-squashfs-sysupgrade.bin''
+
+==== Build the factory image yourself ====
+
+Standard OpenWrt build for target ''qualcommax'' / subtarget ''ipq50xx'',
+device profile ''tplink_re700x''. The build emits ''sysupgrade.bin'' and
+''factory-webflash.bin''.
+
+===== Serial / UART =====
+
+3.3 V TTL, **115200 8N1**. The unpopulated 4-pad header sits next to the
+RF-shield edge. Pads top-to-bottom are **TX, RX, GND, VCC** (silkscreen
+labelled). Use a 3.3 V adapter and leave **VCC disconnected**.
+
+{{:media:tp-link:re700x-uart-header.jpg?400|RE700X UART header — TX/RX/GND/VCC top-to-bottom}}
+
+To break into U-Boot, hold the break string ''tpl'' on the console during
+power-up. Dual-boot slot is selected by the ''tp_boot_idx'' U-Boot env var;
+recover a mis-set slot with: <code>
+setenv tp_boot_idx 0; saveenv</code>
+
+===== Note on the dual-boot brick fix =====
+
+The stock U-Boot passes a slot-correct ''ubi.mtd='' (''rootfs'' / ''rootfs_1''
+per ''tp_boot_idx'') but with an unmountable ''root=mtd:ubi_rootfs''. The DTS
+''/chosen'' inherits the slot-correct ''ubi.mtd='' and appends
+''root=/dev/ubiblock0_1'', so OpenWrt boots from whichever slot the flasher
+wrote — no brick.
+
+===== OEM easy installation =====
+
+  * OEM device homepage: https://www.tp-link.com/ (search "RE700X")
+
+---- dataentry devices ----
+title_fallback : TP-Link RE700X
+brand : TP-Link
+model : RE700X
+version : v1
+devicetype : Range Extender
+availability : @TODO (year of market introduction)
+fccid : @TODO
+cpu : Qualcomm IPQ5018
+cpucores : 2
+cpumhz : 1000
+rammb : 256
+flashmb : 128
+flash_chip : GigaDevice F50D1G41LB (SPI NAND)
+ethernet_gbit_ports : 1
+switch : none
+wlan_hardware : Qualcomm IPQ5018 + QCN6122
+wlan24 : b/g/n/ax
+wlan50 : a/n/ac/ax
+wlanmimo : 2x2
+detachable_antennas : no
+usbports : 0
+serial : yes
+serial_con : 4-pad header (TX/RX/GND/VCC)
+serial_vcc : 3.3 VDC
+serial_baudrate : 115200
+serial_dataparitystop : 8N1
+jtag : @TODO
+bootloader : U-Boot 2016.01
+oon : Qualcomm
+target : qualcommax
+subtarget : ipq50xx
+packagearchitecture : aarch64_cortex-a53
+powersupply : 100-240 V AC, 50/60 Hz, 0.4 A (internal PSU)
+installation_method : OEM web GUI (factory image); UART/TFTP
+comments : Dual-band Wi-Fi 6 range extender. Dual-boot NAND; web-flashable. 256 MB RAM (both radios need the ath11k runtime DP-ring sizing).
+----
