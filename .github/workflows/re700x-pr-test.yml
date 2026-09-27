@@ -93,13 +93,16 @@ jobs:
           make -j"$(nproc)" tools/install || make -j1 V=s tools/install
           make -j"$(nproc)" toolchain/install || make -j1 V=s toolchain/install
 
+      # firmware_qca-wireless#141 is not merged, so ipq-wifi-tplink_re700x is
+      # built empty. Put the board files where that package will install them,
+      # via the top-level files/ overlay (copied verbatim into the rootfs).
       - name: Inject RE700X board-2.bin (firmware_qca-wireless#141 not merged)
         working-directory: openwrt
         run: |
-          make package/firmware/ipq-wifi/clean
-          make package/firmware/ipq-wifi/prepare
-          dir=$(ls -d build_dir/target-*/ipq-wifi-*/ | head -1)
-          cp -v ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.* "$dir"
+          src=../re700x/package/firmware/ipq-wifi/src
+          install -D -m0644 $src/board-tplink_re700x.ipq5018 files/lib/firmware/ath11k/IPQ5018/hw1.0/board-2.bin
+          install -D -m0644 $src/board-tplink_re700x.qcn6122 files/lib/firmware/ath11k/QCN6122/hw1.0/board-2.bin
+          find files -type f -exec sha256sum {} \;
 
       - name: Build image
         working-directory: openwrt
