@@ -1,4 +1,4 @@
-From 6006e067b543a62543b064665c7efc1859e92242 Mon Sep 17 00:00:00 2001
+From 8466e360121b1f074ff1cdb6a733492f7bf9be7d Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 2/2] qualcommax: add support for TP-Link RE700X
@@ -19,9 +19,14 @@ Specifications:
 - UART: 3.3 V serial console, 115200 8N1; on-board 4-pad header,
   pinout from top: TX, RX, GND, VCC
 
-MAC addresses:
-- LAN (label MAC): gmac1, from the 0:appsblenv ethaddr, offset 0
-- 2.4 GHz / 5 GHz: read by ath11k from the board-2.bin calibration data
+MAC addresses (factory_data UBI volume, file default-mac, mounted
+read-only in preinit like on the EAP650):
+- LAN (label MAC): default-mac
+- 2.4 GHz: default-mac + 1
+- 5 GHz: default-mac + 2
+
+Calibration data is extracted from the 0:art partition (IPQ5018 at
+0x1000, QCN6122 at 0x26800).
 
 Installation (no UART/soldering required):
 Flash openwrt-...-squashfs-factory-webflash.bin from the stock TP-Link web
@@ -36,18 +41,21 @@ dual-boot index) but with an unmountable root=mtd:ubi_rootfs. The DTS /chosen
 inherits ubi.mtd= and appends root=/dev/ubiblock0_1, so OpenWrt boots from
 whichever slot the flasher wrote.
 
-The QCN6122/IPQ5018 board-2.bin calibration data is supplied via
+The QCN6122/IPQ5018 board-2.bin (BDF) data is supplied via
 ipq-wifi-tplink_re700x (openwrt/firmware_qca-wireless).
 
 Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---
  package/firmware/ipq-wifi/Makefile            |   2 +
  scripts/tplink-re700x-factory.py              |  97 ++++++
- .../linux/qualcommax/dts/ipq5018-re700x.dts   | 319 ++++++++++++++++++
+ .../linux/qualcommax/dts/ipq5018-re700x.dts   | 303 ++++++++++++++++++
  target/linux/qualcommax/image/Makefile        |   5 +
  target/linux/qualcommax/image/ipq50xx.mk      |  19 ++
+ .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
+ .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
+ .../lib/preinit/09_mount_factory_data         |   3 +-
  .../base-files/lib/upgrade/platform.sh        |   5 +
- 6 files changed, 447 insertions(+)
+ 9 files changed, 449 insertions(+), 3 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
@@ -176,10 +184,10 @@ index 00000000..d8d5eb67
 +    main()
 diff --git a/target/linux/qualcommax/dts/ipq5018-re700x.dts b/target/linux/qualcommax/dts/ipq5018-re700x.dts
 new file mode 100644
-index 00000000..b0ebfdf9
+index 00000000..b76e2408
 --- /dev/null
 +++ b/target/linux/qualcommax/dts/ipq5018-re700x.dts
-@@ -0,0 +1,319 @@
+@@ -0,0 +1,303 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +
 +/dts-v1/;
@@ -334,19 +342,6 @@ index 00000000..b0ebfdf9
 +
 +		partitions {
 +			compatible = "qcom,smem-part";
-+
-+			partition-0-appsblenv {
-+				label = "0:appsblenv";
-+
-+				nvmem-layout {
-+					compatible = "u-boot,env";
-+					env-size = <0x40000>;
-+
-+					macaddr_appsblenv_ethaddr: ethaddr {
-+						#nvmem-cell-cells = <1>;
-+					};
-+				};
-+			};
 +		};
 +	};
 +};
@@ -375,9 +370,6 @@ index 00000000..b0ebfdf9
 +
 +	phy-mode = "sgmii";
 +	phy-handle = <&rtl8211f_6>;
-+
-+	nvmem-cells = <&macaddr_appsblenv_ethaddr 0>;
-+	nvmem-cell-names = "mac-address";
 +};
 +
 +&mdio1 {
@@ -545,6 +537,74 @@ index 05d1be67..8bf90e50 100644
  define Device/yuncore_ax830
  	$(call Device/FitImage)
  	$(call Device/UbiFit)
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+index 76b77b0d..0c60cfad 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+@@ -39,7 +39,8 @@ ipq50xx_setup_interfaces()
+ 		ucidef_set_network_device_conduit "lan3" "eth1"
+ 		ucidef_set_network_device_conduit "wan" "eth0"
+ 		;;
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
++	tplink,re700x)
+ 		ucidef_set_interface_lan "lan" "dhcp"
+ 		;;
+ 	esac
+@@ -63,7 +64,8 @@ ipq50xx_setup_macs()
+ 		# DSA conduit's address on every boot - pin it to the label MAC
+ 		ucidef_set_network_device_mac "eth0" "$label_mac"
+ 		;;
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
++	tplink,re700x)
+ 		label_mac=$(get_mac_binary /tmp/factory_data/default-mac 0)
+ 		[ -n "$label_mac" ] || return
+ 		ucidef_set_interface_macaddr "lan" "$label_mac"
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+index 00c551a9..ba5a5548 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+@@ -60,6 +60,12 @@ case "$FIRMWARE" in
+ 		ath11k_patch_mac $label_mac 0
+ 		ath11k_set_macflag
+ 		;;
++	tplink,re700x)
++		caldata_extract "0:art" 0x1000 0x20000
++		label_mac=$(get_mac_binary /tmp/factory_data/default-mac 0)
++		ath11k_patch_mac $(macaddr_add $label_mac 1) 0
++		ath11k_set_macflag
++		;;
+ 	xiaomi,ax6000|\
+ 	xiaomi,redmi-ax5400)
+ 		caldata_extract "0:art" 0x1000 0x20000
+@@ -160,6 +166,12 @@ case "$FIRMWARE" in
+ 		ath11k_patch_mac $(macaddr_add $label_mac 1) 0
+ 		ath11k_set_macflag
+ 		;;
++	tplink,re700x)
++		caldata_extract "0:art" 0x26800 0x20000
++		label_mac=$(get_mac_binary /tmp/factory_data/default-mac 0)
++		ath11k_patch_mac $(macaddr_add $label_mac 2) 0
++		ath11k_set_macflag
++		;;
+ 	xiaomi,ax6000|\
+ 	xiaomi,redmi-ax5400)
+ 		caldata_extract "0:art" 0x26800 0x20000
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
+index 00c84268..1a8d0be1 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
++++ b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
+@@ -7,7 +7,8 @@ preinit_mount_factory_data() {
+ 	. /lib/functions/system.sh
+ 
+ 	case $(board_name) in
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
++	tplink,re700x)
+ 		mtd_path=$(find_mtd_chardev "factory_data")
+ 		ubiattach --dev-path="$mtd_path" --devn=1
+ 		mkdir /tmp/factory_data
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
 index a49a6408..fb7b908c 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh

@@ -17,6 +17,29 @@ Die beiden Commits des Upstream-PRs (Stand `f47be3b`, 18.07.2026), rebased auf
   backports 7.2 (mit allen vorherigen `mac80211`-Patches angewendet) neu
   erzeugt: jetzt ohne Fuzz/Offset, Code-Änderung selbst identisch.
 
+- **Fehlende Gerätefunktionen ergänzt (0002).** Der PR-Stand vom 18.07. hätte
+  auf dem Gerät nicht vollständig funktioniert. Verglichen mit der laufenden
+  Firmware aus diesem Repo fehlten:
+  1. **WLAN-Kalibrierdaten:** kein `11-ath11k-caldata`-Eintrag. ath11k braucht
+     `cal-ahb-*.bin` aus `0:art` (IPQ5018 @ 0x1000, QCN6122 @ 0x26800), sonst
+     "qmi failed to load CAL data file" → **kein WLAN**. `board-2.bin` allein
+     reicht nicht.
+  2. **Netzwerk-Grundkonfiguration:** kein `02_network`-Eintrag → bei
+     Neuinstallation **kein LAN-Interface**.
+  3. **LAN-MAC:** die DTS las `ethaddr` aus `0:appsblenv`. Dort steht aber keine
+     MAC (nur `baudrate` + `has_default_mac`, siehe NOTES) → zufällige MAC.
+     Jetzt wie beim TP-Link EAP650 in `main`: `factory_data` wird in preinit
+     gemountet, `default-mac` = LAN, +1 = 2,4 GHz, +2 = 5 GHz (gleiche Werte
+     wie die laufende Firmware).
+  Die Commit-Message (Abschnitt MAC-Adressen) ist entsprechend korrigiert.
+
+## Test-Build
+
+`.github/workflows/re700x-pr-test.yml` baut genau diesen Stand (openwrt/main @
+`ab58ca8f` + diese Patches, Board-Dateien lokal eingespielt, gleiche
+LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
+`re700x-pr23982-test-image` im Actions-Tab.
+
 ## Geprüft / nicht geprüft
 
 - ✅ Beide Commits wenden sauber auf `main` an.

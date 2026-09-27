@@ -1,0 +1,135 @@
+name: Build RE700X upstream-PR test image
+
+# Builds a TEST image of the upstream PR (openwrt/openwrt#23982) exactly as it
+# would land in OpenWrt: official openwrt/main at a pinned commit + the patches
+# in upstream-pr-23982/. The RE700X board-2.bin files are injected locally
+# because openwrt/firmware_qca-wireless#141 is not merged yet.
+# Result: a workflow artifact (sysupgrade image, initramfs, SHA256SUMS).
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - 'upstream-pr-23982/**'
+      - '.github/workflows/re700x-pr-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENWRT_COMMIT: ab58ca8fc0e36c526d3590b97f9ef6f90828cd7f
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout this repo (patches + board files)
+        uses: actions/checkout@v4
+        with:
+          path: re700x
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+            gettext git libncurses-dev libssl-dev python3 python3-setuptools \
+            python3-distutils rsync unzip zlib1g-dev file wget libelf-dev swig zstd
+
+      - name: Fetch openwrt/main at pinned commit and apply PR patches
+        run: |
+          git init -q openwrt
+          cd openwrt
+          git remote add origin https://github.com/openwrt/openwrt.git
+          git fetch -q --depth 1 origin "$OPENWRT_COMMIT"
+          git checkout -q FETCH_HEAD
+          git -c user.name=ci -c user.email=ci@localhost am ../re700x/upstream-pr-23982/*.patch
+          git log --oneline -3
+
+      - name: Configure (RE700X + same LuCI set as the re700x releases)
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cat > .config <<'EOF'
+          CONFIG_TARGET_qualcommax=y
+          CONFIG_TARGET_qualcommax_ipq50xx=y
+          CONFIG_TARGET_qualcommax_ipq50xx_DEVICE_tplink_re700x=y
+          CONFIG_PACKAGE_ethtool=y
+          CONFIG_PACKAGE_luci-light=y
+          CONFIG_PACKAGE_luci-theme-material=y
+          CONFIG_PACKAGE_luci-app-statistics=y
+          CONFIG_PACKAGE_luci-app-usteer=y
+          CONFIG_PACKAGE_usteer=y
+          CONFIG_PACKAGE_uhttpd=y
+          CONFIG_PACKAGE_uhttpd-mod-ubus=y
+          CONFIG_LUCI_LANG_de=y
+          EOF
+          make defconfig
+          grep -E 'DEVICE_tplink_re700x|ipq-wifi-tplink_re700x' .config
+
+      - name: Download sources
+        working-directory: openwrt
+        run: make -j"$(nproc)" download
+
+      - name: Build tools + toolchain
+        working-directory: openwrt
+        run: |
+          make -j"$(nproc)" tools/install || make -j1 V=s tools/install
+          make -j"$(nproc)" toolchain/install || make -j1 V=s toolchain/install
+
+      - name: Inject RE700X board-2.bin (firmware_qca-wireless#141 not merged)
+        working-directory: openwrt
+        run: |
+          make package/firmware/ipq-wifi/clean
+          make package/firmware/ipq-wifi/prepare
+          dir=$(ls -d build_dir/target-*/ipq-wifi-*/ | head -1)
+          cp -v ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.* "$dir"
+
+      - name: Build image
+        working-directory: openwrt
+        run: make -j"$(nproc)" || make -j1 V=s
+
+      - name: Verify board files + collect artifacts
+        working-directory: openwrt
+        run: |
+          set -e
+          root=$(ls -d build_dir/target-*/root-qualcommax_ipq50xx)
+          echo "board-2.bin in rootfs:"
+          find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \;
+          sha256sum ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*
+          for f in ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*; do
+            h=$(sha256sum "$f" | cut -d' ' -f1)
+            find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \; | grep -q "$h" \
+              || { echo "ERROR: $f not installed as board-2.bin"; exit 1; }
+          done
+          OUT=bin/targets/qualcommax/ipq50xx
+          mkdir -p ../out
+          cp "$OUT"/*tplink_re700x-squashfs-sysupgrade.bin ../out/re700x-prtest-sysupgrade.bin
+          cp "$OUT"/*tplink_re700x-initramfs-uImage.itb ../out/re700x-prtest-recovery-initramfs.itb 2>/dev/null || true
+          cp "$OUT"/*tplink_re700x*.manifest ../out/ 2>/dev/null || true
+          git log --oneline -3 > ../out/BUILD-INFO.txt
+          ( cd ../out && sha256sum re700x-prtest-* > SHA256SUMS )
+          ls -l ../out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: re700x-pr23982-test-image
+          path: out/*
+          retention-days: 30
