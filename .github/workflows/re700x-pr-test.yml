@@ -105,25 +105,12 @@ jobs:
         working-directory: openwrt
         run: make -j"$(nproc)" || make -j1 V=s
 
-      - name: Verify board files + collect artifacts
+      - name: Collect artifacts
         working-directory: openwrt
         run: |
           set -e
-          # Device packages (ipq-wifi-*) are installed into the per-device
-          # rootfs $(KDIR)/target-dir-<hash> that is squashed into the image,
-          # not into the shared root-<board>.
-          ls -d build_dir/target-*/linux-*/target-dir-* || true
-          root=$(find build_dir -maxdepth 3 -type d -path '*/linux-*/target-dir-*' | head -1)
-          [ -n "$root" ] || { echo "ERROR: no per-device rootfs in build_dir"; exit 1; }
-          echo "rootfs: $root"
-          find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \; | tee ../board2.sums
-          sha256sum ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*
-          for f in ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*; do
-            h=$(sha256sum "$f" | cut -d' ' -f1)
-            grep -q "$h" ../board2.sums \
-              || { echo "ERROR: $f not installed as board-2.bin"; exit 1; }
-          done
           OUT=bin/targets/qualcommax/ipq50xx
+          ls -l "$OUT"
           mkdir -p ../out
           cp "$OUT"/*tplink_re700x-squashfs-sysupgrade.bin ../out/re700x-prtest-sysupgrade.bin
           cp "$OUT"/*tplink_re700x-initramfs-uImage.itb ../out/re700x-prtest-recovery-initramfs.itb 2>/dev/null || true
@@ -138,3 +125,28 @@ jobs:
           name: re700x-pr23982-test-image
           path: out/*
           retention-days: 30
+
+      # Check the real image, not a build dir: the sysupgrade tar holds the
+      # rootfs squashfs; unpack it and look for the RE700X board-2.bin files.
+      - name: Verify board-2.bin inside the sysupgrade image
+        working-directory: openwrt
+        run: |
+          set -e
+          mkdir -p ../verify && cd ../verify
+          tar -xf ../out/re700x-prtest-sysupgrade.bin
+          find . -maxdepth 2 -type f | xargs ls -l
+          rootimg=$(find . -maxdepth 2 -type f -name root | head -1)
+          [ -n "$rootimg" ] || { echo "ERROR: no root in sysupgrade tar"; exit 1; }
+          unsq=$(ls ../openwrt/staging_dir/host/bin/unsquashfs4 2>/dev/null || command -v unsquashfs || true)
+          [ -n "$unsq" ] || { sudo apt-get install -y squashfs-tools >/dev/null; unsq=unsquashfs; }
+          "$unsq" -no-progress -d rootfs "$rootimg" 'lib/firmware' >/dev/null
+          find rootfs/lib/firmware -path '*ath11k*' | sort
+          find rootfs/lib/firmware -name 'board-2.bin' -exec sha256sum {} \; | tee board2.sums
+          sha256sum ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*
+          rc=0
+          for f in ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*; do
+            h=$(sha256sum "$f" | cut -d' ' -f1)
+            if grep -q "$h" board2.sums; then echo "OK: $f"; else echo "ERROR: $f not in image as board-2.bin"; rc=1; fi
+          done
+          grep -i 'ipq-wifi\|ath11k-firmware' ../out/*.manifest || true
+          exit $rc
