@@ -109,13 +109,15 @@ jobs:
         working-directory: openwrt
         run: |
           set -e
-          root=$(ls -d build_dir/target-*/root-qualcommax_ipq50xx)
-          echo "board-2.bin in rootfs:"
-          find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \;
+          ls -d build_dir/target-*/root-* || true
+          root=$(find build_dir -maxdepth 2 -type d -name 'root-*' | head -1)
+          [ -n "$root" ] || { echo "ERROR: no rootfs dir in build_dir"; exit 1; }
+          echo "rootfs: $root"
+          find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \; | tee ../board2.sums
           sha256sum ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*
           for f in ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*; do
             h=$(sha256sum "$f" | cut -d' ' -f1)
-            find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \; | grep -q "$h" \
+            grep -q "$h" ../board2.sums \
               || { echo "ERROR: $f not installed as board-2.bin"; exit 1; }
           done
           OUT=bin/targets/qualcommax/ipq50xx
