@@ -109,9 +109,12 @@ jobs:
         working-directory: openwrt
         run: |
           set -e
-          ls -d build_dir/target-*/root-* || true
-          root=$(find build_dir -maxdepth 2 -type d -name 'root-*' | head -1)
-          [ -n "$root" ] || { echo "ERROR: no rootfs dir in build_dir"; exit 1; }
+          # Device packages (ipq-wifi-*) are installed into the per-device
+          # rootfs $(KDIR)/target-dir-<hash> that is squashed into the image,
+          # not into the shared root-<board>.
+          ls -d build_dir/target-*/linux-*/target-dir-* || true
+          root=$(find build_dir -maxdepth 3 -type d -path '*/linux-*/target-dir-*' | head -1)
+          [ -n "$root" ] || { echo "ERROR: no per-device rootfs in build_dir"; exit 1; }
           echo "rootfs: $root"
           find "$root/lib/firmware" -name 'board-2.bin' -exec sha256sum {} \; | tee ../board2.sums
           sha256sum ../re700x/package/firmware/ipq-wifi/src/board-tplink_re700x.*
