@@ -47,18 +47,9 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   Ringgrößen übrig.
 - ✅ DTS-Struktur passt zu AX830/MX2000 auf `main` (`&gmac1` + `&uniphy0`);
   das Umbenennen der qca8k-Switch-Nodes (`9e3c8633`) betrifft den RE700X nicht.
-- ❌ **Kein Build und kein Test auf Hardware.** Insbesondere der Ethernet-Link mit
-  der DWMAC/UNIPHY-DTS ist weiterhin ungetestet – das steht im PR noch als
-  offener Punkt.
-
-## In den PR übernehmen
-
-In deinem lokalen `openwrt`-Clone (Branch des PRs, z. B. `re700x`):
-
-```sh
-git fetch https://github.com/openwrt/openwrt main
-git checkout -B re700x FETCH_HEAD
-git am /pfad/zu/upstream-pr-23982/*.patch
-# bauen + auf dem Gerät testen, dann:
-git push --force-with-lease <dein-fork> re700x
-```
+- ✅ **Build erfolgreich** (Actions-Lauf #5, 27.09.2026): Image kompiliert,
+  beide RE700X-`board-2.bin` (IPQ5018 + QCN6122) per Hash im Rootfs der
+  `sysupgrade.bin` nachgewiesen. Artifact `re700x-pr23982-test-image`.
+  (Lauf #4 und älter: ohne board-2.bin – nicht verwenden.)
+- ❌ **Kein Test auf Hardware.** Insbesondere der Ethernet-Link mit der
+  DWMAC/UNIPHY-DTS ist noch ungetestet.
