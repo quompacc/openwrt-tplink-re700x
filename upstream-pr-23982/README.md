@@ -4,7 +4,8 @@ Die beiden Commits des Upstream-PRs (Stand `f47be3b`, 18.07.2026), rebased auf
 `openwrt/main` @ `ab58ca8f` (26.09.2026):
 
 - `0001-mac80211-ath11k-pick-DP-ring-sizes-at-runtime-based-.patch`
-- `0002-qualcommax-add-support-for-TP-Link-RE700X.patch`
+- `0002-qualcommax-fix-qpic-snand-use-after-free-on-deferred.patch` (neu)
+- `0003-qualcommax-add-support-for-TP-Link-RE700X.patch`
 
 ## Was sich geändert hat
 
@@ -51,5 +52,17 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   beide RE700X-`board-2.bin` (IPQ5018 + QCN6122) per Hash im Rootfs der
   `sysupgrade.bin` nachgewiesen. Artifact `re700x-pr23982-test-image`.
   (Lauf #4 und älter: ohne board-2.bin – nicht verwenden.)
-- ❌ **Kein Test auf Hardware.** Insbesondere der Ethernet-Link mit der
-  DWMAC/UNIPHY-DTS ist noch ungetestet.
+- ❌ **Hardware-Test 28.09.2026 (Lauf #5): bootet NICHT vom Flash.** UART-Log:
+  `spi-nand spi0.0: probe with driver spi-nand failed with error -512` →
+  keine MTD-Partitionen → wartet ewig auf `/dev/ubiblock0_1`. Außerdem
+  `RTL8211F … probe … failed with error -110` (MDIO-Timeout) → kein Ethernet.
+  Folgefehler: kein `factory_data`, keine WLAN-Kalibrierdaten.
+  - **NAND, Ursache gefunden:** Use-after-free in `spi-qpic-snand` bei
+    zurückgestelltem Probe (Kernel ≥ 6.15 liest den Factory-OTP des ESMT
+    F50D1G41LB beim Registrieren). Manueller `bind` nach dem Boot funktioniert
+    (16 Partitionen). Fix: neuer Patch `0402-…` (Commit 0002). Upstream
+    existiert ein gleichwertiger Fix auf linux-spi.
+  - **PHY, Hypothese:** `&mdio0` war in der DTS deaktiviert; dessen Probe setzt
+    TCSR `ETH_LDO_RDY` für die CMN-PLL. Alle anderen IPQ5018-Boards und die
+    laufende Firmware haben es aktiv → wieder aktiviert, **noch unbestätigt**.
+  - Nächster Test: Initramfs per TFTP (ohne Flash-Schreibzugriff).

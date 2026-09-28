@@ -1,7 +1,7 @@
-From 8466e360121b1f074ff1cdb6a733492f7bf9be7d Mon Sep 17 00:00:00 2001
+From c8305fd6d175c907716e6e4c4f73b9b04eccde6e Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
-Subject: [PATCH 2/2] qualcommax: add support for TP-Link RE700X
+Subject: [PATCH 3/3] qualcommax: add support for TP-Link RE700X
 
 TP-Link RE700X is a dual-band Wi-Fi 6 (AX3000) range extender based on
 Qualcomm IPQ5018 (2.4 GHz) with a QCN6122 (5 GHz) companion radio.
@@ -48,14 +48,14 @@ Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---
  package/firmware/ipq-wifi/Makefile            |   2 +
  scripts/tplink-re700x-factory.py              |  97 ++++++
- .../linux/qualcommax/dts/ipq5018-re700x.dts   | 303 ++++++++++++++++++
+ .../linux/qualcommax/dts/ipq5018-re700x.dts   | 313 ++++++++++++++++++
  target/linux/qualcommax/image/Makefile        |   5 +
  target/linux/qualcommax/image/ipq50xx.mk      |  19 ++
  .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
  .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
  .../lib/preinit/09_mount_factory_data         |   3 +-
  .../base-files/lib/upgrade/platform.sh        |   5 +
- 9 files changed, 449 insertions(+), 3 deletions(-)
+ 9 files changed, 459 insertions(+), 3 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
@@ -184,10 +184,10 @@ index 00000000..d8d5eb67
 +    main()
 diff --git a/target/linux/qualcommax/dts/ipq5018-re700x.dts b/target/linux/qualcommax/dts/ipq5018-re700x.dts
 new file mode 100644
-index 00000000..b76e2408
+index 00000000..014448d3
 --- /dev/null
 +++ b/target/linux/qualcommax/dts/ipq5018-re700x.dts
-@@ -0,0 +1,303 @@
+@@ -0,0 +1,313 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +
 +/dts-v1/;
@@ -370,6 +370,16 @@ index 00000000..b76e2408
 +
 +	phy-mode = "sgmii";
 +	phy-handle = <&rtl8211f_6>;
++};
++
++&mdio0 {
++	/*
++	 * Not used for a port, but its probe sets TCSR ETH_LDO_RDY, which
++	 * tells the CMN PLL that the ethernet LDO is up. All other ipq5018
++	 * boards enable it; with it disabled the RTL8211F on MDIO1 did not
++	 * answer (-ETIMEDOUT).
++	 */
++	status = "okay";
 +};
 +
 +&mdio1 {

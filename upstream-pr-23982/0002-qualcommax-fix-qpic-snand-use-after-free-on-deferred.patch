@@ -1,0 +1,97 @@
+From 89b1a98afaa61425b564e067671db44020395475 Mon Sep 17 00:00:00 2001
+From: Eduard Hart <eduard.hart@etik.com>
+Date: Mon, 28 Sep 2026 16:20:05 +0000
+Subject: [PATCH 2/3] qualcommax: fix qpic-snand use-after-free on deferred
+ probe
+
+On deferred probe, snandc->qspi->ecc can still point at the ECC context
+freed by the first attempt, so the ooblayout callbacks read freed memory
+and spinand probing fails with a bogus error (e.g. -512). This happens
+with SPI-NAND chips whose factory OTP is read at registration (ESMT
+F50D1G41LB, since Linux 6.15) when the qcom smem partition parser defers.
+
+Add a patch publishing the ECC context on creation and clearing it on
+cleanup, pending the equivalent upstream fix.
+
+Signed-off-by: Eduard Hart <eduard.hart@etik.com>
+---
+ ...-publish-the-ECC-context-on-creation.patch | 67 +++++++++++++++++++
+ 1 file changed, 67 insertions(+)
+ create mode 100644 target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch
+
+diff --git a/target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch b/target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch
+new file mode 100644
+index 00000000..348c2505
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch
+@@ -0,0 +1,67 @@
++From: Eduard Hart <eduard.hart@etik.com>
++Subject: [PATCH] spi: spi-qpic-snand: publish the ECC context on creation
++
++snandc->qspi->ecc is only updated in prepare_io_req(), i.e. on the first
++page I/O, but the ooblayout callbacks dereference it right after the ECC
++context is created: spinand_init() calls mtd_ooblayout_count_freebytes()
++before any page I/O.
++
++Since Linux 6.15 spinand reads the factory OTP area during
++mtd_device_register() for chips with OTP support (e.g. ESMT F50D1G41LB).
++That page read runs prepare_io_req() and publishes the ECC context. If
++the probe is then deferred (the qcom smem partition parser returns
++-EPROBE_DEFER until smem is up), cleanup_ctx() frees the context but
++snandc->qspi->ecc keeps pointing at it. On the retry the ooblayout
++callbacks read the freed memory and mtd_ooblayout_count_freebytes()
++returns garbage, e.g.:
++
++  spi-nand spi0.0: probe with driver spi-nand failed with error -512
++
++The error is not -EPROBE_DEFER, so the NAND never appears and the root
++filesystem is not found. Seen on TP-Link RE700X (IPQ5018, ESMT
++F50D1G41LB) when booting from flash; a manual rebind after boot works.
++
++Publish the context as soon as it is created and clear the pointer when
++it is freed. An equivalent fix has been posted upstream to linux-spi
++("spi: spi-qpic-snand: publish the ECC context"); drop this patch in
++favour of the backport once it is merged.
++
++Signed-off-by: Eduard Hart <eduard.hart@etik.com>
++---
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -331,6 +331,11 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 
++ 	nand->ecc.ctx.priv = ecc_cfg;
++ 	snandc->qspi->mtd = mtd;
+++	/*
+++	 * Publish the new context right away: the ooblayout callbacks read
+++	 * snandc->qspi->ecc before any page I/O has run prepare_io_req().
+++	 */
+++	snandc->qspi->ecc = ecc_cfg;
++ 
++ 	ecc_cfg->bbm_size = 1;
++ 	ecc_cfg->bch_enabled = true;
++@@ -412,14 +417,21 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 	return 0;
++ 
++ err_free_ecc_cfg:
+++	if (snandc->qspi->ecc == ecc_cfg)
+++		snandc->qspi->ecc = NULL;
++ 	kfree(ecc_cfg);
++ 	return ret;
++ }
++ 
++ static void qcom_spi_ecc_cleanup_ctx_pipelined(struct nand_device *nand)
++ {
+++	struct qcom_nand_controller *snandc = nand_to_qcom_snand(nand);
++ 	struct qpic_ecc *ecc_cfg = nand_to_ecc_ctx(nand);
++ 
+++	/* Do not leave a dangling pointer behind for a later (re)probe. */
+++	if (snandc->qspi->ecc == ecc_cfg)
+++		snandc->qspi->ecc = NULL;
+++
++ 	kfree(ecc_cfg);
++ }
++ 
++
+-- 
+2.43.0
+
