@@ -1,4 +1,4 @@
-From c8305fd6d175c907716e6e4c4f73b9b04eccde6e Mon Sep 17 00:00:00 2001
+From a61ed2d27cc28d3b6c8018478d64cebedc6455a1 Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 3/3] qualcommax: add support for TP-Link RE700X
@@ -572,7 +572,7 @@ index 76b77b0d..0c60cfad 100644
  		[ -n "$label_mac" ] || return
  		ucidef_set_interface_macaddr "lan" "$label_mac"
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
-index 00c551a9..ba5a5548 100644
+index 00c551a9..e76d43b0 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
 +++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
 @@ -60,6 +60,12 @@ case "$FIRMWARE" in
@@ -588,9 +588,9 @@ index 00c551a9..ba5a5548 100644
  	xiaomi,ax6000|\
  	xiaomi,redmi-ax5400)
  		caldata_extract "0:art" 0x1000 0x20000
-@@ -160,6 +166,12 @@ case "$FIRMWARE" in
- 		ath11k_patch_mac $(macaddr_add $label_mac 1) 0
+@@ -118,6 +124,12 @@ case "$FIRMWARE" in
  		ath11k_set_macflag
+ 		ath11k_remove_regdomain
  		;;
 +	tplink,re700x)
 +		caldata_extract "0:art" 0x26800 0x20000
@@ -598,9 +598,9 @@ index 00c551a9..ba5a5548 100644
 +		ath11k_patch_mac $(macaddr_add $label_mac 2) 0
 +		ath11k_set_macflag
 +		;;
- 	xiaomi,ax6000|\
- 	xiaomi,redmi-ax5400)
- 		caldata_extract "0:art" 0x26800 0x20000
+ 	yuncore,ax830)
+ 		caldata_extract "0:ART" 0x4c000 0x20000
+ 		label_mac=$(mtd_get_mac_binary 0:ART 0)
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
 index 00c84268..1a8d0be1 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data

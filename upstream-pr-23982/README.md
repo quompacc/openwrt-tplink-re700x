@@ -65,4 +65,10 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   - **PHY, Hypothese:** `&mdio0` war in der DTS deaktiviert; dessen Probe setzt
     TCSR `ETH_LDO_RDY` für die CMN-PLL. Alle anderen IPQ5018-Boards und die
     laufende Firmware haben es aktiv → wieder aktiviert, **noch unbestätigt**.
-  - Nächster Test: Initramfs per TFTP (ohne Flash-Schreibzugriff).
+- ✅ **Hardware-Test 28.09.2026 (Lauf #7, Initramfs per TFTP):** beide Fixes
+  bestätigt. NAND beim Boot erkannt (16 qcomsmem-Partitionen, kein `bind`
+  nötig), `factory_data` gemountet, RTL8211F erkannt, **Link 1 Gbps/Full**
+  mit der DWMAC/UNIPHY-DTS, 2,4-GHz-Kalibrierung ok.
+  - 5 GHz: `qmi failed to load CAL data file:cal-ahb-b00a040.wifi.bin` (-12).
+    Ursache: RE700X-Eintrag für QCN6122 war beim Einfügen im QCN9074-Abschnitt
+    von `11-ath11k-caldata` gelandet → verschoben (Lauf #8).
