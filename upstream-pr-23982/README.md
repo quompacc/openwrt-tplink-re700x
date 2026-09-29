@@ -86,3 +86,10 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   **nicht** die Release-Firmware (952 ändert die Makros direkt). Ersetzt durch
   neuen 953 (ath12k-artige Speicherprofile, siehe `upstream-kernel/`), Branch
   `re700x-wifi-followup` aktualisiert; dort außerdem die WLAN-LEDs ergänzt.
+- ❌ Lauf #9 und #10 (29.09.2026): abgebrochen, bevor etwas vom RE700X gebaut
+  wurde. Ursache war das Test-Skript: Die Umgebungsvariable `PATCH_DIR`
+  überschreibt in OpenWrt den Patch-Ordner jedes Pakets, dadurch wurden keine
+  Patches angewendet. Umbenannt in `SERIES_DIR`.
+- ✅ **Lauf #11 (29.09.2026): Build erfolgreich**, WLAN-Folgestand
+  (`wifi-followup/`: neuer Patch 953, WLAN an, WLAN-LEDs + LED-Migration),
+  beide `board-2.bin` im Image nachgewiesen. Hardware-Test steht aus.
