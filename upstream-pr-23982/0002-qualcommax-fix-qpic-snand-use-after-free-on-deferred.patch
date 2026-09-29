@@ -1,4 +1,4 @@
-From 89b1a98afaa61425b564e067671db44020395475 Mon Sep 17 00:00:00 2001
+From 167af708a6277d9413d606ed152381df29fdff76 Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 28 Sep 2026 16:20:05 +0000
 Subject: [PATCH 2/3] qualcommax: fix qpic-snand use-after-free on deferred
@@ -15,17 +15,19 @@ cleanup, pending the equivalent upstream fix.
 
 Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---
- ...-publish-the-ECC-context-on-creation.patch | 67 +++++++++++++++++++
- 1 file changed, 67 insertions(+)
+ ...-publish-the-ECC-context-on-creation.patch | 69 +++++++++++++++++++
+ 1 file changed, 69 insertions(+)
  create mode 100644 target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch
 
 diff --git a/target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch b/target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch
 new file mode 100644
-index 00000000..348c2505
+index 00000000..3a96be23
 --- /dev/null
 +++ b/target/linux/qualcommax/patches-6.18/0402-spi-spi-qpic-snand-publish-the-ECC-context-on-creation.patch
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,69 @@
++From 9627a5a57b9728600224fe355e8ae91ceeadf858 Mon Sep 17 00:00:00 2001
 +From: Eduard Hart <eduard.hart@etik.com>
++Date: Mon, 28 Sep 2026 18:10:00 +0200
 +Subject: [PATCH] spi: spi-qpic-snand: publish the ECC context on creation
 +
 +snandc->qspi->ecc is only updated in prepare_io_req(), i.e. on the first
