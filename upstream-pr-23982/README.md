@@ -79,3 +79,10 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   Radios und `coherent_pool=2M`.
 - ⚠️ Weiterhin nicht Ende-zu-Ende getestet: Erstinstallation aus der
   Stock-Firmware per Web-GUI (`factory-webflash.bin`), kein Gerät mit Stock-FW.
+- ❗ **29.09.2026: Speicherfehler im alten ath11k-Patch 953 gefunden.**
+  `ATH11K_TX_COMPL_NEXT()` wrappte weiter bei 32768, der `tx_status`-Puffer hatte
+  aber nur 2048 Einträge → Out-of-bounds bei WLAN-TX-Verkehr. Betraf Image #8
+  und den alten WLAN-Branch, **nicht** den PR (dort ist der Patch entfernt) und
+  **nicht** die Release-Firmware (952 ändert die Makros direkt). Ersetzt durch
+  neuen 953 (ath12k-artige Speicherprofile, siehe `upstream-kernel/`), Branch
+  `re700x-wifi-followup` aktualisiert; dort außerdem die WLAN-LEDs ergänzt.

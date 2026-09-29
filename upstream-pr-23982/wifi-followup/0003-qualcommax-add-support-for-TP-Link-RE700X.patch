@@ -1,4 +1,4 @@
-From 9207677f253e787b767edd09773ab4cef297accc Mon Sep 17 00:00:00 2001
+From 5608d5498e9f2997df08a247c2ef33ec78b6f87b Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 3/3] qualcommax: add support for TP-Link RE700X
