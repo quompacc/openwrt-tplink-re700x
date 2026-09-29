@@ -93,3 +93,8 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
 - ✅ **Lauf #11 (29.09.2026): Build erfolgreich**, WLAN-Folgestand
   (`wifi-followup/`: neuer Patch 953, WLAN an, WLAN-LEDs + LED-Migration),
   beide `board-2.bin` im Image nachgewiesen. Hardware-Test steht aus.
+- ✅ **Hardware-Test 29.09.2026 (Lauf #11, vom Flash, Update mit Einstellungen,
+  EG-Gerät):** Boot sauber, beide Radios, keine WLAN-Fehler/`-108`. Unter
+  Last (YouTube, danach >6 Clients, Router-WLAN aus) keine neuen Meldungen;
+  `available` nach Einschwingen stabil bei ~25 MB. Langzeittest über Nacht läuft.
+  Firmware: `WLAN.HK.2.7.0.1-01744-QCAHKSWPL_SILICONZ-1`.
