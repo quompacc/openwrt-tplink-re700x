@@ -20,6 +20,9 @@ permissions:
 
 env:
   OPENWRT_COMMIT: ab58ca8fc0e36c526d3590b97f9ef6f90828cd7f
+  # Which patch series to build: upstream-pr-23982 (the open PR, Wi-Fi off)
+  # or upstream-pr-23982/wifi-followup (Wi-Fi on, ath11k patch, LEDs).
+  PATCH_DIR: upstream-pr-23982/wifi-followup
 
 jobs:
   build:
@@ -58,8 +61,9 @@ jobs:
           git remote add origin https://github.com/openwrt/openwrt.git
           git fetch -q --depth 1 origin "$OPENWRT_COMMIT"
           git checkout -q FETCH_HEAD
-          git -c user.name=ci -c user.email=ci@localhost am ../re700x/upstream-pr-23982/*.patch
-          git log --oneline -3
+          echo "Patch series: $PATCH_DIR"
+          git -c user.name=ci -c user.email=ci@localhost am ../re700x/$PATCH_DIR/*.patch
+          git log --oneline -4
 
       - name: Configure (RE700X + same LuCI set as the re700x releases)
         working-directory: openwrt
