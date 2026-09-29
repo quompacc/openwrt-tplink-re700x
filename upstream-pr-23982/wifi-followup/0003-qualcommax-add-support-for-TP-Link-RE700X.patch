@@ -1,4 +1,4 @@
-From 311aa6abc529b37e9eb92ce0652ac0115d2d5490 Mon Sep 17 00:00:00 2001
+From 9207677f253e787b767edd09773ab4cef297accc Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 3/3] qualcommax: add support for TP-Link RE700X
@@ -51,11 +51,12 @@ Signed-off-by: Eduard Hart <eduard.hart@etik.com>
  .../linux/qualcommax/dts/ipq5018-re700x.dts   | 313 ++++++++++++++++++
  target/linux/qualcommax/image/Makefile        |   5 +
  target/linux/qualcommax/image/ipq50xx.mk      |  19 ++
+ .../ipq50xx/base-files/etc/board.d/01_leds    |   4 +
  .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
  .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
  .../lib/preinit/09_mount_factory_data         |   3 +-
  .../base-files/lib/upgrade/platform.sh        |   5 +
- 9 files changed, 460 insertions(+), 4 deletions(-)
+ 10 files changed, 464 insertions(+), 4 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
@@ -556,6 +557,21 @@ index 05d1be67..8bf90e50 100644
  define Device/yuncore_ax830
  	$(call Device/FitImage)
  	$(call Device/UbiFit)
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+index 4237c6ff..5f5ae769 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+@@ -34,6 +34,10 @@ tplink,archer-ax55-v1)
+ 	ucidef_set_led_netdev "wlan2g" "WLAN2G" "green:wlan-2ghz" "phy0-ap0" "link tx rx"
+ 	ucidef_set_led_netdev "wlan5g" "WLAN5G" "green:wlan-5ghz" "phy1-ap0" "link tx rx"
+ 	;;
++tplink,re700x)
++	ucidef_set_led_netdev "wlan2g" "WLAN2G" "green:wlan-2ghz" "phy0-ap0" "link tx rx"
++	ucidef_set_led_netdev "wlan5g" "WLAN5G" "green:wlan-5ghz" "phy1-ap0" "link tx rx"
++	;;
+ xiaomi,redmi-ax5400)
+ 	ucidef_set_led_netdev "wan-port-link-top-blue" "WAN-PORT-LINK-TOP-BLUE" "blue:wan" "wan" "link_1000"
+ 	ucidef_set_led_netdev "wan-port-link-top-yellow" "WAN-PORT-LINK-TOP-YELLOW" "yellow:wan" "wan" "link_10 link_100"
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 index 76b77b0d..0c60cfad 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
