@@ -1,6 +1,6 @@
 # Rebase von openwrt/openwrt#23982 auf aktuelles `main`
 
-Die beiden Commits des Upstream-PRs (Stand `f47be3b`, 18.07.2026), rebased auf
+Die Commits des Upstream-PRs (Stand `f47be3b`, 18.07.2026), rebased auf
 `openwrt/main` @ `ab58ca8f` (26.09.2026):
 
 - `0001-mac80211-ath11k-pick-DP-ring-sizes-at-runtime-based-.patch`
@@ -9,7 +9,7 @@ Die beiden Commits des Upstream-PRs (Stand `f47be3b`, 18.07.2026), rebased auf
 
 ## Was sich geändert hat
 
-- **Gerätesupport (0002):** ließ sich konfliktfrei anwenden, inhaltlich unverändert
+- **Gerätesupport (0003):** ließ sich konfliktfrei anwenden, inhaltlich unverändert
   (Auto-Merge in `ipq-wifi/Makefile`, `ipq50xx.mk`, `platform.sh`).
 - **ath11k-Patch 953 (0001):** `main` hat `mac80211` von 6.18.26 auf
   **backports 7.2** angehoben. Der Patch ging noch durch, aber Hunk 4 nur mit
@@ -18,7 +18,7 @@ Die beiden Commits des Upstream-PRs (Stand `f47be3b`, 18.07.2026), rebased auf
   backports 7.2 (mit allen vorherigen `mac80211`-Patches angewendet) neu
   erzeugt: jetzt ohne Fuzz/Offset, Code-Änderung selbst identisch.
 
-- **Fehlende Gerätefunktionen ergänzt (0002).** Der PR-Stand vom 18.07. hätte
+- **Fehlende Gerätefunktionen ergänzt (0003).** Der PR-Stand vom 18.07. hätte
   auf dem Gerät nicht vollständig funktioniert. Verglichen mit der laufenden
   Firmware aus diesem Repo fehlten:
   1. **WLAN-Kalibrierdaten:** kein `11-ath11k-caldata`-Eintrag. ath11k braucht
@@ -72,3 +72,10 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   - 5 GHz: `qmi failed to load CAL data file:cal-ahb-b00a040.wifi.bin` (-12).
     Ursache: RE700X-Eintrag für QCN6122 war beim Einfügen im QCN9074-Abschnitt
     von `11-ath11k-caldata` gelandet → verschoben (Lauf #8).
+- ✅ **Hardware-Test 29.09.2026 (Lauf #8, vom Flash, Update per LuCI mit
+  Einstellungen):** komplett bestanden. Boot vom Flash, Link 1 Gbps/Full,
+  **beide Radios** (2,4 GHz `phy0-ap0` Kanal 1; 5 GHz `phy1-ap0` Kanal 36/80 MHz),
+  keine Kalibrierfehler, MACs = Label +1/+2, ~47 MB RAM verfügbar mit beiden
+  Radios und `coherent_pool=2M`.
+- ⚠️ Weiterhin nicht Ende-zu-Ende getestet: Erstinstallation aus der
+  Stock-Firmware per Web-GUI (`factory-webflash.bin`), kein Gerät mit Stock-FW.
