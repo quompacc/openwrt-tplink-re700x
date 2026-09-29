@@ -96,5 +96,12 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
 - ✅ **Hardware-Test 29.09.2026 (Lauf #11, vom Flash, Update mit Einstellungen,
   EG-Gerät):** Boot sauber, beide Radios, keine WLAN-Fehler/`-108`. Unter
   Last (YouTube, danach >6 Clients, Router-WLAN aus) keine neuen Meldungen;
-  `available` nach Einschwingen stabil bei ~25 MB. Langzeittest über Nacht läuft.
   Firmware: `WLAN.HK.2.7.0.1-01744-QCAHKSWPL_SILICONZ-1`.
+- ❌ **Speicherleck (29.09.2026, Lauf #11):** `MemAvailable` fällt stetig
+  (40 MB nach Boot → 25 MB nach 21 min → 10 MB nach 1 h, 3–6 Clients).
+  Alte Release-Firmware (OG, Kernel 6.12, NSS-Ethernet, backports 6.18.26):
+  ~44 MB nach 93 Tagen. Nicht Userspace (`AnonPages` 6 MB), Slab nur +4 MB;
+  ~30 MB mehr in keiner `meminfo`-Zeile → vermutlich nicht freigegebene
+  Netzwerkpakete. Kandidaten: Kernel 6.18, ath11k (backports 7.2),
+  DWMAC/UNIPHY-Ethernet. Eingrenzung per minütlichem Log (Speicher vs.
+  Paketzähler je Schnittstelle) läuft. **Bis dahin nichts weiter einreichen.**
