@@ -20,9 +20,10 @@ permissions:
 
 env:
   OPENWRT_COMMIT: ab58ca8fc0e36c526d3590b97f9ef6f90828cd7f
-  # Which patch series to build: upstream-pr-23982 (the open PR, Wi-Fi off)
+  # Which patch series to build (not PATCH_DIR: that name overrides the
+  # per-package patch dir in OpenWrt's make and silently skips all patches): upstream-pr-23982 (the open PR, Wi-Fi off)
   # or upstream-pr-23982/wifi-followup (Wi-Fi on, ath11k patch, LEDs).
-  PATCH_DIR: upstream-pr-23982/wifi-followup
+  SERIES_DIR: upstream-pr-23982/wifi-followup
 
 jobs:
   build:
@@ -61,8 +62,8 @@ jobs:
           git remote add origin https://github.com/openwrt/openwrt.git
           git fetch -q --depth 1 origin "$OPENWRT_COMMIT"
           git checkout -q FETCH_HEAD
-          echo "Patch series: $PATCH_DIR"
-          git -c user.name=ci -c user.email=ci@localhost am ../re700x/$PATCH_DIR/*.patch
+          echo "Patch series: $SERIES_DIR"
+          git -c user.name=ci -c user.email=ci@localhost am ../re700x/$SERIES_DIR/*.patch
           git log --oneline -4
 
       - name: Configure (RE700X + same LuCI set as the re700x releases)
@@ -94,9 +95,7 @@ jobs:
       - name: Build tools + toolchain
         working-directory: openwrt
         run: |
-          # A failed parallel pass can leave tools/ninja unpatched; clean it
-          # before the verbose retry.
-          make -j"$(nproc)" tools/install || { make tools/ninja/clean; make -j1 V=s tools/install; }
+          make -j"$(nproc)" tools/install || make -j1 V=s tools/install
           make -j"$(nproc)" toolchain/install || make -j1 V=s toolchain/install
 
       # firmware_qca-wireless#141 is not merged, so ipq-wifi-tplink_re700x is
