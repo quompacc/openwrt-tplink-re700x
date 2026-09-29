@@ -1,4 +1,4 @@
-From 5eb2969dbea3f5b52817083361a2a32421f53425 Mon Sep 17 00:00:00 2001
+From 65b655d91076379c0759acd7334d303de2647a98 Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 2/2] qualcommax: add support for TP-Link RE700X
@@ -51,7 +51,7 @@ low-memory boards, once that has been accepted upstream.
 
 Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---
- package/firmware/ipq-wifi/Makefile            |   4 +-
+ package/firmware/ipq-wifi/Makefile            |   2 +
  scripts/tplink-re700x-factory.py              |  97 ++++++
  .../linux/qualcommax/dts/ipq5018-re700x.dts   | 316 ++++++++++++++++++
  target/linux/qualcommax/image/Makefile        |   5 +
@@ -60,23 +60,14 @@ Signed-off-by: Eduard Hart <eduard.hart@etik.com>
  .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
  .../lib/preinit/09_mount_factory_data         |   3 +-
  .../base-files/lib/upgrade/platform.sh        |   5 +
- 9 files changed, 463 insertions(+), 4 deletions(-)
+ 9 files changed, 462 insertions(+), 3 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
 diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
-index e235aaab..fa9d6663 100644
+index e235aaab..b21bcf94 100644
 --- a/package/firmware/ipq-wifi/Makefile
 +++ b/package/firmware/ipq-wifi/Makefile
-@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
- include $(INCLUDE_DIR)/version.mk
- 
- PKG_NAME:=ipq-wifi
--PKG_RELEASE:=1
-+PKG_RELEASE:=2
- 
- PKG_SOURCE_PROTO:=git
- PKG_SOURCE_URL=$(PROJECT_GIT)/project/firmware/qca-wireless.git
 @@ -106,6 +106,7 @@ ALLWIFIBOARDS:= \
  	tplink_eap625-outdoor-hd-v1 \
  	tplink_eap650-outdoor-v1 \
