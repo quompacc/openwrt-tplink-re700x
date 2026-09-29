@@ -94,7 +94,9 @@ jobs:
       - name: Build tools + toolchain
         working-directory: openwrt
         run: |
-          make -j"$(nproc)" tools/install || make -j1 V=s tools/install
+          # A failed parallel pass can leave tools/ninja unpatched; clean it
+          # before the verbose retry.
+          make -j"$(nproc)" tools/install || { make tools/ninja/clean; make -j1 V=s tools/install; }
           make -j"$(nproc)" toolchain/install || make -j1 V=s toolchain/install
 
       # firmware_qca-wireless#141 is not merged, so ipq-wifi-tplink_re700x is
