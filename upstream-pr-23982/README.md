@@ -105,3 +105,13 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   Netzwerkpakete. Kandidaten: Kernel 6.18, ath11k (backports 7.2),
   DWMAC/UNIPHY-Ethernet. Eingrenzung per minütlichem Log (Speicher vs.
   Paketzähler je Schnittstelle) läuft. **Bis dahin nichts weiter einreichen.**
+- ⚠️ **Korrektur 30.09.2026:** Das "Speicherleck" oben ist so **nicht belegt**.
+  Die "RAM low - reboot"-Abbrüche kamen vom eigenen Log-Skript (Schwelle
+  15 MB), nicht von Speichermangel. Längerer Lauf mit Lauf #12 (mac80211
+  6.18.39) unter WLAN-Last: `MemAvailable` fällt auf ~16 MB, der Kernel gibt
+  danach wieder frei (23–29 MB) bei weiterlaufendem Verkehr. Offen ist nur
+  der höhere Grundverbrauch gegenüber der Release-Firmware (EG 16–30 MB vs.
+  OG 44–52 MB frei); Langzeittest ohne Skript-Neustart auf OOM-Meldungen läuft.
+- Lauf #12 (Test-Build, nur zur Eingrenzung): wie #11, aber mac80211 auf
+  6.18.39 zurückgesetzt (`bisect-mac80211-6.18.39/`). Gleiches Verhalten wie #11
+  → das Verhalten hängt nicht an backports 7.2.
