@@ -138,4 +138,4 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   `oob_buf`-Handling in `qcom_spi_ecc_cleanup_ctx_pipelined()`), im Patch
   vermerkt. Geprüft: wendet sauber auf 6.18.52 an, danach 0401 ohne Versatz.
 - Beide Commits neu auf `openwrt/main` @ `c759267c` (30.09.2026) gesetzt,
-  konfliktfrei. Test-Build (Lauf #13) prüft, dass alles kompiliert.
+  konfliktfrei. Test-Build Lauf #13 erfolgreich (Kernel mit 0093 + DTS ohne Crypto-Nodes kompiliert, Image erzeugt).
