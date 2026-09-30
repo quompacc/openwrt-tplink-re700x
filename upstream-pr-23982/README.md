@@ -125,3 +125,17 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
     Release-Firmware (OG) liegt unter ähnlicher Last (6 Clients) ebenfalls bei
     ~30 MB frei; die früheren 44–52 MB waren bei weniger Last. Kein relevanter
     Unterschied.
+
+## Review-Runde 30.09.2026 (George)
+
+- "remove the crypto and cryptobam nodes please. The upstream driver was broken
+  and has been removed." → `&crypto`/`&cryptobam` aus der DTS entfernt.
+- "there's an upstream patch for this one" (torvalds/linux `f94c9b68bb5f`,
+  "spi: spi-qpic-snand: publish the ECC context to snandc->qspi", in v7.3) →
+  eigener Patch 0402 ersetzt durch Backport
+  `0093-v7.3-spi-spi-qpic-snand-publish-the-ECC-context-to-snandc-qspi.patch`.
+  Der Cleanup-Hunk ist an 6.18 angepasst (dort gibt es noch kein
+  `oob_buf`-Handling in `qcom_spi_ecc_cleanup_ctx_pipelined()`), im Patch
+  vermerkt. Geprüft: wendet sauber auf 6.18.52 an, danach 0401 ohne Versatz.
+- Beide Commits neu auf `openwrt/main` @ `c759267c` (30.09.2026) gesetzt,
+  konfliktfrei. Test-Build (Lauf #13) prüft, dass alles kompiliert.

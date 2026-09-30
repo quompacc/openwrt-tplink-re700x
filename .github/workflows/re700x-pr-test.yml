@@ -19,11 +19,11 @@ permissions:
   contents: read
 
 env:
-  OPENWRT_COMMIT: ab58ca8fc0e36c526d3590b97f9ef6f90828cd7f
+  OPENWRT_COMMIT: c759267c92b0697a6fd6f369164a5ed4c1a6a03c
   # Which patch series to build (not PATCH_DIR: that name overrides the
   # per-package patch dir in OpenWrt's make and silently skips all patches): upstream-pr-23982 (the open PR, Wi-Fi off)
   # or upstream-pr-23982/wifi-followup (Wi-Fi on, ath11k patch, LEDs).
-  SERIES_DIR: upstream-pr-23982/wifi-followup
+  SERIES_DIR: upstream-pr-23982
 
 jobs:
   build:

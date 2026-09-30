@@ -1,4 +1,4 @@
-From 65b655d91076379c0759acd7334d303de2647a98 Mon Sep 17 00:00:00 2001
+From 6f604eb1ee884fadbdc629178b54494271f517db Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 2/2] qualcommax: add support for TP-Link RE700X
@@ -53,22 +53,22 @@ Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---
  package/firmware/ipq-wifi/Makefile            |   2 +
  scripts/tplink-re700x-factory.py              |  97 ++++++
- .../linux/qualcommax/dts/ipq5018-re700x.dts   | 316 ++++++++++++++++++
+ .../linux/qualcommax/dts/ipq5018-re700x.dts   | 308 ++++++++++++++++++
  target/linux/qualcommax/image/Makefile        |   5 +
  target/linux/qualcommax/image/ipq50xx.mk      |  19 ++
  .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
  .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
  .../lib/preinit/09_mount_factory_data         |   3 +-
  .../base-files/lib/upgrade/platform.sh        |   5 +
- 9 files changed, 462 insertions(+), 3 deletions(-)
+ 9 files changed, 454 insertions(+), 3 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
 diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
-index e235aaab..b21bcf94 100644
+index de25103d..8318fadc 100644
 --- a/package/firmware/ipq-wifi/Makefile
 +++ b/package/firmware/ipq-wifi/Makefile
-@@ -106,6 +106,7 @@ ALLWIFIBOARDS:= \
+@@ -107,6 +107,7 @@ ALLWIFIBOARDS:= \
  	tplink_eap625-outdoor-hd-v1 \
  	tplink_eap650-outdoor-v1 \
  	tplink_eap660hd-v1 \
@@ -76,7 +76,7 @@ index e235aaab..b21bcf94 100644
  	tplink_tl-wa1201-v2 \
  	ubnt_utr \
  	wallys_dr40x9 \
-@@ -310,6 +311,7 @@ $(eval $(call generate-ipq-wifi-package,tplink_eap623-outdoor-hd-v1,TP-Link EAP6
+@@ -312,6 +313,7 @@ $(eval $(call generate-ipq-wifi-package,tplink_eap623-outdoor-hd-v1,TP-Link EAP6
  $(eval $(call generate-ipq-wifi-package,tplink_eap625-outdoor-hd-v1,TP-Link EAP625-Outdoor HD v1))
  $(eval $(call generate-ipq-wifi-package,tplink_eap650-outdoor-v1,TP-Link EAP650-Outdoor v1))
  $(eval $(call generate-ipq-wifi-package,tplink_eap660hd-v1,TP-Link EAP660 HD v1))
@@ -189,10 +189,10 @@ index 00000000..d8d5eb67
 +    main()
 diff --git a/target/linux/qualcommax/dts/ipq5018-re700x.dts b/target/linux/qualcommax/dts/ipq5018-re700x.dts
 new file mode 100644
-index 00000000..622fdad9
+index 00000000..79111058
 --- /dev/null
 +++ b/target/linux/qualcommax/dts/ipq5018-re700x.dts
-@@ -0,0 +1,316 @@
+@@ -0,0 +1,308 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +
 +/dts-v1/;
@@ -307,14 +307,6 @@ index 00000000..622fdad9
 +};
 +
 +&blsp1_uart1 {
-+	status = "okay";
-+};
-+
-+&crypto {
-+	status = "okay";
-+};
-+
-+&cryptobam {
 +	status = "okay";
 +};
 +
@@ -526,10 +518,10 @@ index 245dc76f..ca7966b4 100644
  
  $(eval $(call BuildImage))
 diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
-index 05d1be67..8bf90e50 100644
+index 5cebb9a0..bb9d893b 100644
 --- a/target/linux/qualcommax/image/ipq50xx.mk
 +++ b/target/linux/qualcommax/image/ipq50xx.mk
-@@ -298,6 +298,25 @@ define Device/xiaomi_redmi-ax5400
+@@ -326,6 +326,25 @@ define Device/xiaomi_redmi-ax5400
  endef
  TARGET_DEVICES += xiaomi_redmi-ax5400
  
@@ -556,10 +548,10 @@ index 05d1be67..8bf90e50 100644
  	$(call Device/FitImage)
  	$(call Device/UbiFit)
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
-index 76b77b0d..0c60cfad 100644
+index 6c683651..12fa6265 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 +++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
-@@ -39,7 +39,8 @@ ipq50xx_setup_interfaces()
+@@ -42,7 +42,8 @@ ipq50xx_setup_interfaces()
  		ucidef_set_network_device_conduit "lan3" "eth1"
  		ucidef_set_network_device_conduit "wan" "eth0"
  		;;
@@ -569,7 +561,7 @@ index 76b77b0d..0c60cfad 100644
  		ucidef_set_interface_lan "lan" "dhcp"
  		;;
  	esac
-@@ -63,7 +64,8 @@ ipq50xx_setup_macs()
+@@ -66,7 +67,8 @@ ipq50xx_setup_macs()
  		# DSA conduit's address on every boot - pin it to the label MAC
  		ucidef_set_network_device_mac "eth0" "$label_mac"
  		;;
@@ -580,10 +572,10 @@ index 76b77b0d..0c60cfad 100644
  		[ -n "$label_mac" ] || return
  		ucidef_set_interface_macaddr "lan" "$label_mac"
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
-index 00c551a9..e76d43b0 100644
+index b0911e21..5fa726d7 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
 +++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
-@@ -60,6 +60,12 @@ case "$FIRMWARE" in
+@@ -65,6 +65,12 @@ case "$FIRMWARE" in
  		ath11k_patch_mac $label_mac 0
  		ath11k_set_macflag
  		;;
@@ -596,7 +588,7 @@ index 00c551a9..e76d43b0 100644
  	xiaomi,ax6000|\
  	xiaomi,redmi-ax5400)
  		caldata_extract "0:art" 0x1000 0x20000
-@@ -118,6 +124,12 @@ case "$FIRMWARE" in
+@@ -123,6 +129,12 @@ case "$FIRMWARE" in
  		ath11k_set_macflag
  		ath11k_remove_regdomain
  		;;
@@ -624,10 +616,10 @@ index 00c84268..1a8d0be1 100644
  		ubiattach --dev-path="$mtd_path" --devn=1
  		mkdir /tmp/factory_data
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
-index a49a6408..fb7b908c 100644
+index 510f8e58..36b9a031 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
 +++ b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
-@@ -257,6 +257,11 @@ platform_do_upgrade() {
+@@ -266,6 +266,11 @@ platform_do_upgrade() {
  		CI_DATA_UBIPART="rootfs"
  		nand_do_upgrade "$1"
  		;;
