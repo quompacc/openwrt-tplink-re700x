@@ -1,4 +1,4 @@
-From eabc7f81f1df3814344bf2a3a730862ffc9d823a Mon Sep 17 00:00:00 2001
+From 18826a412f40583eccf61be506c3aae764f9069a Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 28 Sep 2026 16:20:05 +0000
 Subject: [PATCH 2/3] qualcommax: fix qpic-snand use-after-free on deferred

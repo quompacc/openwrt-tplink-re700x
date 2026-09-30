@@ -1,4 +1,4 @@
-From f8f347637cbb39f997db0a139f9ff23e278c2dc9 Mon Sep 17 00:00:00 2001
+From 6e018ac6c508cd3a4868bc6ac620d44020eee34a Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Tue, 29 Sep 2026 04:37:26 +0000
 Subject: [PATCH] wifi: ath11k: use smaller DP rings on low-memory systems
@@ -26,7 +26,12 @@ IDR range of outstanding TX buffers, so ATH11K_TX_COMPL_NEXT() now wraps
 at the selected ring size instead of the compile-time constant.
 
 With this, both radios of a TP-Link RE700X (IPQ5018 + QCN6122, 256 MiB)
-stay up with about 47 MiB of RAM available.
+stay up under load (4-6 clients) with 14-37 MiB of RAM available and no
+OOM, about the same as a 256 MiB build that shrinks the rings at compile
+time.
+
+Tested-on: IPQ5018 hw1.0 AHB WLAN.HK.2.7.0.1-01744-QCAHKSWPL_SILICONZ-1
+Tested-on: QCN6122 hw1.0 AHB WLAN.HK.2.7.0.1-01744-QCAHKSWPL_SILICONZ-1
 
 Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---

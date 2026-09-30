@@ -26,16 +26,19 @@ angenommen ist, darf WLAN für den RE700X in OpenWrt eingeschaltet werden.
 - ✅ `scripts/checkpatch.pl --strict`: 0 Fehler, 0 Warnungen, 0 Hinweise.
 - ✅ Lässt sich als OpenWrt-Patch 953 exakt auf backports 7.2 anwenden
   (Branch `re700x-wifi-followup`, `upstream-pr-23982/wifi-followup/`).
-- ❌ **Noch nicht auf Hardware getestet.** Die ath11k-Maintainer verlangen eine
-  Zeile `Tested-on:` mit Chip, Bus und Firmware-Version. Die kommt erst nach
-  einem Test auf dem RE700X dazu (siehe unten).
+- ✅ **Auf Hardware getestet (29./30.09.2026, RE700X, OpenWrt-Lauf #11):** beide
+  Radios unter Last (4–6 Clients, bis ~30.000 TX-Pakete/min auf 5 GHz),
+  14–37 MB frei, keine OOM-Meldung, keine WLAN-Fehler. `Tested-on:` für
+  IPQ5018 und QCN6122 ist eingetragen, die Commit-Message nennt jetzt die
+  gemessenen Werte statt der früheren 47 MiB.
 - ❌ Noch nicht gegen `ath-next` geprüft (`git.kernel.org` war in dieser
   Arbeitsumgebung gesperrt). Der ath11k-Datenpfad ändert sich selten, aber vor
   dem Versand bitte einmal darauf umsetzen (Schritt 2).
 
 ## Ablauf bis zum Versand (später, gemeinsam)
 
-1. **Hardware-Test:** Testimage aus dem Branch `re700x-wifi-followup` bauen
+1. ~~**Hardware-Test:**~~ erledigt (siehe oben).
+   Ursprüngliche Anleitung: Testimage aus dem Branch `re700x-wifi-followup` bauen
    (WLAN an, neuer Patch 953), auf dem RE700X flashen, beide Radios mit Verkehr
    laufen lassen (z. B. ein paar GB über WLAN kopieren), `free -m` und `dmesg`
    prüfen. Danach unter die `Signed-off-by`-Zeile setzen:
