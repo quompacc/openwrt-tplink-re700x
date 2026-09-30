@@ -1,5 +1,11 @@
 # ath11k-Patch für den Linux-Kernel
 
+> **Verschickt am 30.09.2026, 18:50** an Jeff Johnson (jjohnson@kernel.org),
+> Cc ath11k@lists.infradead.org, linux-wireless@vger.kernel.org,
+> linux-kernel@vger.kernel.org.
+> Message-ID: `<20260930165052.4998-1-eduard.hart@etik.com>`
+> Archiv: https://lore.kernel.org/all/20260930165052.4998-1-eduard.hart@etik.com/
+
 `0001-wifi-ath11k-use-smaller-DP-rings-on-low-memory-syste.patch` bringt die
 Speicherreduktion für 256-MB-Geräte in den offiziellen Linux-Kernel. Darum hat
 George im PR gebeten ("Can you send it pls?"). Erst wenn der Patch dort
