@@ -115,3 +115,12 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
 - Lauf #12 (Test-Build, nur zur Eingrenzung): wie #11, aber mac80211 auf
   6.18.39 zurückgesetzt (`bisect-mac80211-6.18.39/`). Gleiches Verhalten wie #11
   → das Verhalten hängt nicht an backports 7.2.
+- ✅ **Vergleich unter gleicher Last (30.09.2026, EG, Router-WLAN aus, 4–6 Clients,
+  Log-Skript mit 4-MB-Schwelle):**
+  - Lauf #12 (mac80211 6.18.39): `MemAvailable` schwankt 12–34 MB, erholt sich
+    jeweils in 1–3 min, kein Abwärtstrend, keine OOM-Meldung.
+  - Lauf #11 (mac80211 7.2, Ziel-Stand): 14–37 MB bei mehr 5-GHz-Verkehr
+    (bis ~30.000 TX-Pakete/min), kein Abwärtstrend, keine OOM-Meldung.
+  - → Beide Treiber gleichwertig, **Lauf #11 besteht den Hardware-Test**.
+    Offen: geringere Reserve als Release-Firmware (OG 44–52 MB), Ursache noch
+    nicht untersucht.
