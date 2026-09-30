@@ -31,9 +31,9 @@ angenommen ist, darf WLAN für den RE700X in OpenWrt eingeschaltet werden.
   14–37 MB frei, keine OOM-Meldung, keine WLAN-Fehler. `Tested-on:` für
   IPQ5018 und QCN6122 ist eingetragen, die Commit-Message nennt jetzt die
   gemessenen Werte statt der früheren 47 MiB.
-- ❌ Noch nicht gegen `ath-next` geprüft (`git.kernel.org` war in dieser
-  Arbeitsumgebung gesperrt). Der ath11k-Datenpfad ändert sich selten, aber vor
-  dem Versand bitte einmal darauf umsetzen (Schritt 2).
+- ✅ **Gegen `ath-next` geprüft (30.09.2026):** `git am` auf `ath-next` @
+  `21b4248bfa0f` (Merge tag 'ath-next-20260927') sauber, `checkpatch --strict`
+  0 Fehler / 0 Warnungen.
 
 ## Ablauf bis zum Versand (später, gemeinsam)
 
@@ -47,7 +47,7 @@ angenommen ist, darf WLAN für den RE700X in OpenWrt eingeschaltet werden.
    ```
    (Firmware-Version aus dem `dmesg` des Geräts: `fw_build_id …`)
 
-2. **Auf `ath-next` umsetzen:**
+2. ~~**Auf `ath-next` umsetzen:**~~ erledigt (siehe oben).
    ```sh
    git clone https://git.kernel.org/pub/scm/linux/kernel/git/ath/ath.git -b ath-next
    cd ath
