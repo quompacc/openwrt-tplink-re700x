@@ -1,0 +1,673 @@
+From 74236a7cda821db9594a3878b6f462ccf11a638a Mon Sep 17 00:00:00 2001
+From: Eduard Hart <eduard.hart@etik.com>
+Date: Mon, 29 Jun 2026 19:43:57 +0200
+Subject: [PATCH 2/3] qualcommax: add support for TP-Link RE700X
+
+TP-Link RE700X is a dual-band Wi-Fi 6 (AX3000) range extender based on
+Qualcomm IPQ5018 (2.4 GHz) with a QCN6122 (5 GHz) companion radio.
+
+Specifications:
+- SoC: Qualcomm IPQ5018 (dual-core ARM Cortex-A53)
+- RAM: 256 MiB
+- Flash: 128 MiB SPI-NAND (GigaDevice F50D1G41LB)
+- Wi-Fi: IPQ5018 2.4 GHz + QCN6122 5 GHz, both 802.11ax
+- Ethernet: 1x Gigabit - IPQ5018 MAC1 (DWMAC) via SGMII/uniphy0 to a
+  Realtek RTL8211F (MDIO1 addr 6). The SoC internal GE PHY (MAC0/gmac0)
+  is not wired to any external port and stays disabled.
+- LEDs: 5, Buttons: reset + WPS
+- Power: 100-240 V AC, 50/60 Hz, 0.4 A (internal PSU, wall-plug)
+- UART: 3.3 V serial console, 115200 8N1; on-board 4-pad header,
+  pinout from top: TX, RX, GND, VCC
+
+MAC addresses (factory_data UBI volume, file default-mac, mounted
+read-only in preinit like on the EAP650):
+- LAN (label MAC): default-mac
+- 2.4 GHz: default-mac + 1
+- 5 GHz: default-mac + 2
+
+Calibration data is extracted from the 0:art partition (IPQ5018 at
+0x1000, QCN6122 at 0x26800).
+
+Installation (no UART/soldering required):
+Flash openwrt-...-squashfs-factory-webflash.bin from the stock TP-Link web
+UI (System -> Firmware Upgrade). scripts/tplink-re700x-factory.py wraps the
+rootfs UBI into the stock "nvrammanager" upload container (the same
+"tplink2022"/safeloader family as scripts/tplink-mkimage-2022.py); the stock
+flasher writes it into the inactive dual-boot slot. Alternatively RAM-boot
+the initramfs via U-Boot/TFTP and run sysupgrade.
+
+The stock U-Boot passes a slot-correct ubi.mtd= (rootfs / rootfs_1 per the
+dual-boot index) but with an unmountable root=mtd:ubi_rootfs. The DTS /chosen
+inherits ubi.mtd= and appends root=/dev/ubiblock0_1, so OpenWrt boots from
+whichever slot the flasher wrote.
+
+The QCN6122/IPQ5018 board-2.bin (BDF) data is supplied via
+ipq-wifi-tplink_re700x (openwrt/firmware_qca-wireless).
+
+Signed-off-by: Eduard Hart <eduard.hart@etik.com>
+---
+ package/firmware/ipq-wifi/Makefile            |   2 +
+ scripts/tplink-re700x-factory.py              |  97 ++++++
+ .../linux/qualcommax/dts/ipq5018-re700x.dts   | 313 ++++++++++++++++++
+ target/linux/qualcommax/image/Makefile        |   5 +
+ target/linux/qualcommax/image/ipq50xx.mk      |  19 ++
+ .../ipq50xx/base-files/etc/board.d/01_leds    |   4 +
+ .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
+ .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
+ .../etc/uci-defaults/04_led_migration         |  13 +
+ .../lib/preinit/09_mount_factory_data         |   3 +-
+ .../base-files/lib/upgrade/platform.sh        |   5 +
+ 11 files changed, 476 insertions(+), 3 deletions(-)
+ create mode 100755 scripts/tplink-re700x-factory.py
+ create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/04_led_migration
+
+diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
+index e235aaab..b21bcf94 100644
+--- a/package/firmware/ipq-wifi/Makefile
++++ b/package/firmware/ipq-wifi/Makefile
+@@ -106,6 +106,7 @@ ALLWIFIBOARDS:= \
+ 	tplink_eap625-outdoor-hd-v1 \
+ 	tplink_eap650-outdoor-v1 \
+ 	tplink_eap660hd-v1 \
++	tplink_re700x \
+ 	tplink_tl-wa1201-v2 \
+ 	ubnt_utr \
+ 	wallys_dr40x9 \
+@@ -310,6 +311,7 @@ $(eval $(call generate-ipq-wifi-package,tplink_eap623-outdoor-hd-v1,TP-Link EAP6
+ $(eval $(call generate-ipq-wifi-package,tplink_eap625-outdoor-hd-v1,TP-Link EAP625-Outdoor HD v1))
+ $(eval $(call generate-ipq-wifi-package,tplink_eap650-outdoor-v1,TP-Link EAP650-Outdoor v1))
+ $(eval $(call generate-ipq-wifi-package,tplink_eap660hd-v1,TP-Link EAP660 HD v1))
++$(eval $(call generate-ipq-wifi-package,tplink_re700x,TP-Link RE700X))
+ $(eval $(call generate-ipq-wifi-package,tplink_tl-wa1201-v2,TP-Link TL-WA1201 V2))
+ $(eval $(call generate-ipq-wifi-package,ubnt_utr,Ubiquiti UniFi Travel Router))
+ $(eval $(call generate-ipq-wifi-package,wallys_dr40x9,Wallys DR40X9))
+diff --git a/scripts/tplink-re700x-factory.py b/scripts/tplink-re700x-factory.py
+new file mode 100755
+index 00000000..d8d5eb67
+--- /dev/null
++++ b/scripts/tplink-re700x-factory.py
+@@ -0,0 +1,97 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: GPL-2.0-or-later
++#
++# Wrap an OpenWrt rootfs UBI into a TP-Link RE700X web-UI-flashable factory
++# image. The image is accepted by the stock RE700X "nvrammanager" (the stock
++# "Firmware Upgrade" web page), so OpenWrt can be installed without UART.
++#
++# This is the same TP-Link "tplink2022" container family as
++# scripts/tplink-mkimage-2022.py (identical 16-byte salt, 0x1014 table /
++# 0x1814 data layout, MD5(salt + image[0x14:]) header checksum), but with the
++# RE700X "FwUpTbl" table variant: a 12-byte table header (rootfs-size, count,
++# 0) followed by 0x2c-byte entries (name[32], offset, size, type). The rootfs
++# UBI occupies the data region first (no table entry) and is flashed with
++# "ubiformat -o 0x1814 -S <rootfs-size>" into the inactive dual-boot slot.
++#
++# The support-list and (anti-downgrade-bumped) soft-version are the generic
++# RE700X EU/region metadata recovered from stock firmware; no per-device data.
++
++import argparse
++import hashlib
++import struct
++
++SALT = bytes([0x7a, 0x2b, 0x15, 0xed, 0x9b, 0x98, 0x59, 0x6d,
++              0xe5, 0x04, 0xab, 0x44, 0xac, 0x2a, 0x9f, 0x4e])
++
++TABLE_OFF = 0x1014
++DATA_OFF = 0x1814          # TABLE_OFF + 0x800
++ENTRY_SZ = 0x2c
++MAX_ENT = 32
++TABLE_SZ = 12 + MAX_ENT * ENTRY_SZ      # 0x58c, fixed memcpy size in nm_readFwUpTbl
++
++SUPPORT_LIST = (
++    "SupportList:\n"
++    "{product_name:RE700X,product_ver:1.0.0,special_id:00000000}\n"
++    "{product_name:RE700X,product_ver:1.0.0,special_id:4A500000}\n"
++    "{product_name:RE700X,product_ver:1.0.0,special_id:554B0000}\n"
++    "{product_name:RE700X,product_ver:1.0.0,special_id:45550000}\n"
++    "{product_name:RE700X,product_ver:1.0.0,special_id:41550000}\n"
++    "{product_name:RE700X,product_ver:1.0.0,special_id:41530000}\n"
++).encode()
++
++# soft_ver bumped to 9.9.9 so the image always passes the stock anti-downgrade
++# check; fw_id / cfg_ver are the stock RE700X strings.
++SOFT_VERSION = (
++    "soft_ver:9.9.9 Build 20991231 Rel. 99999\n"
++    "fw_id:\n"
++    "cfg_ver:RE700Xh1.0.0V1.1.4P1-9CF02F8DEC4552218A6D58A4B9F5D8F1\n"
++).encode()
++
++
++def make_entry(name, base, size, field):
++    nm = name.encode()
++    if len(nm) >= 32:
++        raise ValueError("section name too long: %r" % name)
++    return nm + b'\x00' * (32 - len(nm)) + struct.pack('>III', base, size, field)
++
++
++def build_image(os_data, meta):
++    field0 = len(os_data)                       # rootfs size (ubiformat -S)
++    blob = bytearray(os_data)
++    bases, cur = [], field0
++    for s in meta:
++        bases.append(cur)
++        blob += s['data']
++        cur += len(s['data'])
++
++    tbl = struct.pack('>III', field0, len(meta), 0)
++    for i, s in enumerate(meta):
++        tbl += make_entry(s['name'], bases[i], len(s['data']), s.get('field', 0))
++    tbl += b'\x00' * (TABLE_SZ - len(tbl))
++
++    img = bytearray(b'\xff' * (DATA_OFF + len(blob)))
++    img[TABLE_OFF:TABLE_OFF + TABLE_SZ] = tbl
++    img[DATA_OFF:DATA_OFF + len(blob)] = blob
++    struct.pack_into('>I', img, 0, len(img))
++    img[4:0x14] = hashlib.md5(SALT + bytes(img[0x14:])).digest()
++    return bytes(img)
++
++
++def main():
++    ap = argparse.ArgumentParser(description=__doc__)
++    ap.add_argument('--rootfs', required=True, help='OpenWrt rootfs UBI image')
++    ap.add_argument('-o', '--output', required=True, help='factory image output')
++    args = ap.parse_args()
++
++    with open(args.rootfs, 'rb') as f:
++        os_data = f.read()
++    meta = [
++        {'name': 'support-list', 'data': SUPPORT_LIST, 'field': 0},
++        {'name': 'soft-version', 'data': SOFT_VERSION, 'field': 0},
++    ]
++    with open(args.output, 'wb') as f:
++        f.write(build_image(os_data, meta))
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/target/linux/qualcommax/dts/ipq5018-re700x.dts b/target/linux/qualcommax/dts/ipq5018-re700x.dts
+new file mode 100644
+index 00000000..014448d3
+--- /dev/null
++++ b/target/linux/qualcommax/dts/ipq5018-re700x.dts
+@@ -0,0 +1,313 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++/dts-v1/;
++
++#include "ipq5018.dtsi"
++#include "ipq5018-ess.dtsi"
++#include "ipq5018-qcn6122.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	model = "TP-Link RE700X";
++	compatible = "tplink,re700x", "qcom,ipq5018";
++
++	aliases {
++		serial0 = &blsp1_uart1;
++		led-boot = &led_wps_blue;
++		led-failsafe = &led_wps_blue;
++		led-running = &led_wps_blue;
++		led-upgrade = &led_wps_blue;
++	};
++
++	chosen {
++		/*
++		 * Slot-aware dual-boot: the stock U-Boot passes a slot-correct
++		 * cmdline ("ubi.mtd=rootfs" or "ubi.mtd=rootfs_1" depending on
++		 * tp_boot_idx) but with "root=mtd:ubi_rootfs", which mainline
++		 * cannot mount. Inherit U-Boot's slot-correct ubi.mtd and only
++		 * append our own root= (last root= wins, overriding the bogus
++		 * one) plus coherent_pool for the ath11k 2.4 GHz DMA. This boots
++		 * OpenWrt from whichever slot the flasher wrote -> no more brick.
++		 */
++		bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=2M";
++		stdout-path = "serial0:115200n8";
++	};
++
++	keys {
++		compatible = "gpio-keys-polled";
++		poll-interval = <100>;
++		pinctrl-0 = <&button_pins>;
++		pinctrl-names = "default";
++
++		button-reset {
++			label = "reset";
++			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_RESTART>;
++		};
++
++		button-wps {
++			label = "wps";
++			gpios = <&tlmm 20 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_WPS_BUTTON>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++		pinctrl-0 = <&led_pins>;
++		pinctrl-names = "default";
++
++		/*
++		 * All five front-panel LEDs confirmed by GPIO output sweep:
++		 * power 31, wps-red 32, wps-blue 22, wlan2g 33, wlan5g 34
++		 * (all active-high). The stock DTB LED GPIOs were all wrong.
++		 */
++		led_power: power {
++			gpios = <&tlmm 31 GPIO_ACTIVE_HIGH>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_POWER;
++			default-state = "on";
++		};
++
++		led_wps_red: wps-red {
++			gpios = <&tlmm 32 GPIO_ACTIVE_HIGH>;
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_WPS;
++			default-state = "off";
++		};
++
++		led_wps_blue: wps-blue {
++			gpios = <&tlmm 22 GPIO_ACTIVE_HIGH>;
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_WPS;
++			default-state = "off";
++		};
++
++		led_wlan2g: wlan-2g {
++			gpios = <&tlmm 33 GPIO_ACTIVE_HIGH>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WLAN_2GHZ;
++			default-state = "off";
++		};
++
++		led_wlan5g: wlan-5g {
++			gpios = <&tlmm 34 GPIO_ACTIVE_HIGH>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WLAN_5GHZ;
++			default-state = "off";
++		};
++	};
++};
++
++&sleep_clk {
++	clock-frequency = <32000>;
++};
++
++&xo_board_clk {
++	clock-div = <4>;
++	clock-mult = <1>;
++};
++
++&blsp1_uart1 {
++	status = "okay";
++};
++
++&crypto {
++	status = "okay";
++};
++
++&cryptobam {
++	status = "okay";
++};
++
++&prng {
++	status = "okay";
++};
++
++&qfprom {
++	status = "okay";
++};
++
++&qpic_bam {
++	status = "okay";
++};
++
++&qpic_nand {
++	pinctrl-0 = <&qpic_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++
++	flash@0 {
++		compatible = "spi-nand";
++		reg = <0>;
++		nand-ecc-engine = <&qpic_nand>;
++
++		/* strength=8 breaks NAND I/O, use 4 instead */
++		nand-ecc-strength = <4>;
++		nand-ecc-step-size = <512>;
++		nand-bus-width = <8>;
++
++		partitions {
++			compatible = "qcom,smem-part";
++		};
++	};
++};
++
++/*
++ * Ethernet: a single Gigabit port.
++ *
++ *   IPQ5018 MAC1 --- SGMII (uniphy0) ---> Realtek RTL8211F @ MDIO1 addr 6
++ *
++ * The SoC's internal GE PHY (MAC0/gmac0) is not wired to any external
++ * port on this device, so only MAC1 is enabled. U-Boot enumerates this
++ * port as eth1/MAC1 with PHY ID 0x001cc916 (RTL8211F).
++ */
++&uniphy0 {
++	status = "okay";
++
++	assigned-clocks = <&uniphy0 UNIPHY_CLK_REF>;
++	assigned-clock-rates = <UNIPHY_REFCLK_25MHZ>;
++};
++
++/* MAC1 --- SGMII ---> RTL8211F */
++&gmac1 {
++	status = "okay";
++
++	label = "lan";
++
++	phy-mode = "sgmii";
++	phy-handle = <&rtl8211f_6>;
++};
++
++&mdio0 {
++	/*
++	 * Not used for a port, but its probe sets TCSR ETH_LDO_RDY, which
++	 * tells the CMN PLL that the ethernet LDO is up. All other ipq5018
++	 * boards enable it; with it disabled the RTL8211F on MDIO1 did not
++	 * answer (-ETIMEDOUT).
++	 */
++	status = "okay";
++};
++
++&mdio1 {
++	status = "okay";
++
++	pinctrl-0 = <&mdio1_pins>;
++	pinctrl-names = "default";
++
++	rtl8211f_6: ethernet-phy@6 {
++		compatible = "ethernet-phy-id001c.c916";
++		reg = <6>;
++		/*
++		 * No reset-gpios: the stock DTB claimed gpio33 as the PHY
++		 * reset, but gpio33 is actually the 2.4G LED (confirmed by
++		 * GPIO sweep). U-Boot brings the PHY up and the link is
++		 * stable without a Linux-side reset.
++		 */
++	};
++};
++
++&tlmm {
++	button_pins: button-state {
++		pins = "gpio19", "gpio20";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-up;
++	};
++
++	led_pins: led-state {
++		pins = "gpio22", "gpio31", "gpio32", "gpio33", "gpio34";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-down;
++	};
++
++	mdio1_pins: mdio-state {
++		mdc-pins {
++			pins = "gpio36";
++			function = "mdc";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++
++		mdio-pins {
++			pins = "gpio37";
++			function = "mdio";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++	};
++
++	qpic_pins: qpic-state {
++		clock-pins {
++			pins = "gpio9";
++			function = "qspi_clk";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		cs-pins {
++			pins = "gpio8";
++			function = "qspi_cs";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		data-pins {
++			pins = "gpio4", "gpio5", "gpio6", "gpio7";
++			function = "qspi_data";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++};
++
++&q6v5_wcss {
++	/*
++	 * Stock boot-args, decoded from the stock FIT config@mp02.1 DTB.
++	 * Format per radio: <PCIE-index, length, userPD-id, reset-gpio,
++	 * resv, resv>. Group A (UPD3): PCIE0, gpio15. Group B (UPD2 = our
++	 * QCN6122): PCIE1, reset gpio27 (0x1b) - a board-specific override
++	 * of the firmware UPD2 default gpio18. This is what lets the QCN6122
++	 * userpd finish init instead of stalling in the DOG watchdog.
++	 */
++	boot-args = <0x1 4 3 15 0 0  0x2 4 2 0x1b 0 0>;
++};
++
++&wifi {
++	status = "okay";
++
++	qcom,rproc = <&q6_wcss_pd1>;
++	qcom,ath11k-calibration-variant = "TP-Link-RE700X";
++	qcom,ath11k-fw-memory-mode = <1>;
++	qcom,bdf-addr = <0x4c400000>;
++
++	ieee80211-freq-limit = <2400000 2483000>;
++};
++
++&wifi1 {
++	/*
++	 * QCN6122 5 GHz. Uses the canonical OpenWrt PD2 memory layout
++	 * (bdf 0x4d100000 / m3-dump 0x4df00000) and the stock-derived
++	 * q6v5_wcss boot-args above, which put UPD2 on PCIE1 with reset
++	 * GPIO 27. This combination lets the userpd finish init and keeps
++	 * both ath11k radios online.
++	 *
++	 * 5 GHz stays enabled because the ath11k DP rings are shrunk at
++	 * runtime on this 256 MB board (mac80211 patch 953), so both radios
++	 * fit in RAM.
++	 */
++	status = "okay";
++
++	qcom,rproc = <&q6_wcss_pd2>;
++	qcom,userpd-subsys-name = "q6v5_wcss_userpd2";
++	qcom,ath11k-calibration-variant = "TP-Link-RE700X";
++	qcom,ath11k-fw-memory-mode = <1>;
++	qcom,bdf-addr = <0x4d100000>;
++	qcom,m3-dump-addr = <0x4df00000>;
++
++	ieee80211-freq-limit = <5150000 5730000>;
++};
+diff --git a/target/linux/qualcommax/image/Makefile b/target/linux/qualcommax/image/Makefile
+index 245dc76f..ca7966b4 100644
+--- a/target/linux/qualcommax/image/Makefile
++++ b/target/linux/qualcommax/image/Makefile
+@@ -36,6 +36,11 @@ define Device/UbiFit
+ 	IMAGE/factory.ubi := append-ubi
+ endef
+ 
++define Build/tplink-re700x-factory
++	$(TOPDIR)/scripts/tplink-re700x-factory.py --rootfs $@ --output $@.factory
++	mv $@.factory $@
++endef
++
+ include $(SUBTARGET).mk
+ 
+ $(eval $(call BuildImage))
+diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
+index 05d1be67..8bf90e50 100644
+--- a/target/linux/qualcommax/image/ipq50xx.mk
++++ b/target/linux/qualcommax/image/ipq50xx.mk
+@@ -298,6 +298,25 @@ define Device/xiaomi_redmi-ax5400
+ endef
+ TARGET_DEVICES += xiaomi_redmi-ax5400
+ 
++define Device/tplink_re700x
++	$(call Device/FitImage)
++	$(call Device/UbiFit)
++	DEVICE_VENDOR := TP-Link
++	DEVICE_MODEL := RE700X
++	DEVICE_VARIANT := v1
++	SOC := ipq5018
++	BLOCKSIZE := 128k
++	PAGESIZE := 2048
++	NAND_SIZE := 128m
++	IMAGE_SIZE := 43008k
++	DEVICE_DTS_CONFIG := config@mp02.1
++	IMAGES += factory-webflash.bin
++	IMAGE/factory-webflash.bin := append-ubi | tplink-re700x-factory
++	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122 \
++		ipq-wifi-tplink_re700x kmod-phy-realtek
++endef
++TARGET_DEVICES += tplink_re700x
++
+ define Device/yuncore_ax830
+ 	$(call Device/FitImage)
+ 	$(call Device/UbiFit)
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+index 4237c6ff..5f5ae769 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+@@ -34,6 +34,10 @@ tplink,archer-ax55-v1)
+ 	ucidef_set_led_netdev "wlan2g" "WLAN2G" "green:wlan-2ghz" "phy0-ap0" "link tx rx"
+ 	ucidef_set_led_netdev "wlan5g" "WLAN5G" "green:wlan-5ghz" "phy1-ap0" "link tx rx"
+ 	;;
++tplink,re700x)
++	ucidef_set_led_netdev "wlan2g" "WLAN2G" "green:wlan-2ghz" "phy0-ap0" "link tx rx"
++	ucidef_set_led_netdev "wlan5g" "WLAN5G" "green:wlan-5ghz" "phy1-ap0" "link tx rx"
++	;;
+ xiaomi,redmi-ax5400)
+ 	ucidef_set_led_netdev "wan-port-link-top-blue" "WAN-PORT-LINK-TOP-BLUE" "blue:wan" "wan" "link_1000"
+ 	ucidef_set_led_netdev "wan-port-link-top-yellow" "WAN-PORT-LINK-TOP-YELLOW" "yellow:wan" "wan" "link_10 link_100"
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+index 76b77b0d..0c60cfad 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+@@ -39,7 +39,8 @@ ipq50xx_setup_interfaces()
+ 		ucidef_set_network_device_conduit "lan3" "eth1"
+ 		ucidef_set_network_device_conduit "wan" "eth0"
+ 		;;
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
++	tplink,re700x)
+ 		ucidef_set_interface_lan "lan" "dhcp"
+ 		;;
+ 	esac
+@@ -63,7 +64,8 @@ ipq50xx_setup_macs()
+ 		# DSA conduit's address on every boot - pin it to the label MAC
+ 		ucidef_set_network_device_mac "eth0" "$label_mac"
+ 		;;
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
++	tplink,re700x)
+ 		label_mac=$(get_mac_binary /tmp/factory_data/default-mac 0)
+ 		[ -n "$label_mac" ] || return
+ 		ucidef_set_interface_macaddr "lan" "$label_mac"
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+index 00c551a9..e76d43b0 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+@@ -60,6 +60,12 @@ case "$FIRMWARE" in
+ 		ath11k_patch_mac $label_mac 0
+ 		ath11k_set_macflag
+ 		;;
++	tplink,re700x)
++		caldata_extract "0:art" 0x1000 0x20000
++		label_mac=$(get_mac_binary /tmp/factory_data/default-mac 0)
++		ath11k_patch_mac $(macaddr_add $label_mac 1) 0
++		ath11k_set_macflag
++		;;
+ 	xiaomi,ax6000|\
+ 	xiaomi,redmi-ax5400)
+ 		caldata_extract "0:art" 0x1000 0x20000
+@@ -118,6 +124,12 @@ case "$FIRMWARE" in
+ 		ath11k_set_macflag
+ 		ath11k_remove_regdomain
+ 		;;
++	tplink,re700x)
++		caldata_extract "0:art" 0x26800 0x20000
++		label_mac=$(get_mac_binary /tmp/factory_data/default-mac 0)
++		ath11k_patch_mac $(macaddr_add $label_mac 2) 0
++		ath11k_set_macflag
++		;;
+ 	yuncore,ax830)
+ 		caldata_extract "0:ART" 0x4c000 0x20000
+ 		label_mac=$(mtd_get_mac_binary 0:ART 0)
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/04_led_migration b/target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/04_led_migration
+new file mode 100644
+index 00000000..2065d877
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/04_led_migration
+@@ -0,0 +1,13 @@
++. /lib/functions/migrations.sh
++
++board=$(board_name)
++
++case "$board" in
++tplink,re700x)
++	migrate_leds ":wlan2g=:wlan-2ghz" ":wlan5g=:wlan-5ghz"
++	;;
++esac
++
++migrations_apply system
++
++exit 0
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
+index 00c84268..1a8d0be1 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
++++ b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_factory_data
+@@ -7,7 +7,8 @@ preinit_mount_factory_data() {
+ 	. /lib/functions/system.sh
+ 
+ 	case $(board_name) in
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
++	tplink,re700x)
+ 		mtd_path=$(find_mtd_chardev "factory_data")
+ 		ubiattach --dev-path="$mtd_path" --devn=1
+ 		mkdir /tmp/factory_data
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+index a49a6408..fb7b908c 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
++++ b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+@@ -257,6 +257,11 @@ platform_do_upgrade() {
+ 		CI_DATA_UBIPART="rootfs"
+ 		nand_do_upgrade "$1"
+ 		;;
++	tplink,re700x)
++		CI_UBIPART="rootfs"
++		remove_oem_ubi_volume ubi_rootfs
++		nand_do_upgrade "$1"
++		;;
+ 	yuncore,ax830|\
+ 	yuncore,ax850|\
+ 	zyxel,scr50axe)
+-- 
+2.43.0
+
