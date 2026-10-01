@@ -139,3 +139,6 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   vermerkt. Geprüft: wendet sauber auf 6.18.52 an, danach 0401 ohne Versatz.
 - Beide Commits neu auf `openwrt/main` @ `c759267c` (30.09.2026) gesetzt,
   konfliktfrei. Test-Build Lauf #13 erfolgreich (Kernel mit 0093 + DTS ohne Crypto-Nodes kompiliert, Image erzeugt).
+- ✅ 01.10.2026: Fork-Branch `re700x-upstream` per force-with-lease auf
+  `6f604eb1` aktualisiert (vorher `65b655d9`); PR #23982 zeigt die zwei neuen
+  Commits (`819935d8` Backport, `6f604eb1` Gerät).
