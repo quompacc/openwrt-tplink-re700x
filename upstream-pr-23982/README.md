@@ -142,3 +142,7 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
 - ✅ 01.10.2026: Fork-Branch `re700x-upstream` per force-with-lease auf
   `6f604eb1` aktualisiert (vorher `65b655d9`); PR #23982 zeigt die zwei neuen
   Commits (`819935d8` Backport, `6f604eb1` Gerät).
+- ⚠️→✅ 01.10.2026: openwrt-ai/FormalityCheck: Committer von `6f604eb1` war
+  `Claude <noreply@anthropic.com>` (Umgebungs-Standard beim Neuaufsetzen).
+  Committer korrigiert (Inhalt identisch, gleicher Tree), PR-Head jetzt
+  `ac4be590`. `user.name`/`user.email` im OpenWrt-Klon fest auf Eduard gesetzt.
