@@ -180,3 +180,4 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   3) #15 → #11 (neue Logik): zurück nach `rootfs`, `tp_boot_idx=0`.
   Vorher `/etc/config/ubootenv` gelöscht (leer aus älteren Images, sonst würde
   die envtools-Konfiguration bei "Einstellungen behalten" nicht erzeugt).
+- ✅ 02.10.2026: PR #23982 auf `41a2a758` aktualisiert (nur noch Gerätecommit).
