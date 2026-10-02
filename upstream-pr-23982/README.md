@@ -172,3 +172,11 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   (`generic/backport-6.18/441-v7.4-…`, Johan Alvarado, identischer Inhalt), unser
   0093 ließ sich deshalb nicht mehr anwenden. Backport-Commit entfernt, die
   PR-Serie besteht jetzt nur noch aus dem Gerätecommit. Lauf #15.
+- ✅ **Hardware-Test Dual-Slot-sysupgrade 02.10.2026 (Lauf #15, EG):**
+  1) Image #11 → #15 (alte Logik): `rootfs`, `tp_boot_idx=0`,
+     `/etc/fw_env.config` = `/dev/mtd7 0x0 0x40000 0x20000`, `fw_printenv` ok.
+  2) #15 → #15 (neue Logik): Gerät startet aus `rootfs_1`, `tp_boot_idx=1`,
+     Einstellungen erhalten.
+  3) #15 → #11 (neue Logik): zurück nach `rootfs`, `tp_boot_idx=0`.
+  Vorher `/etc/config/ubootenv` gelöscht (leer aus älteren Images, sonst würde
+  die envtools-Konfiguration bei "Einstellungen behalten" nicht erzeugt).
