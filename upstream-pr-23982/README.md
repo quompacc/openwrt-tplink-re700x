@@ -146,3 +146,8 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   `Claude <noreply@anthropic.com>` (Umgebungs-Standard beim Neuaufsetzen).
   Committer korrigiert (Inhalt identisch, gleicher Tree), PR-Head jetzt
   `ac4be590`. `user.name`/`user.email` im OpenWrt-Klon fest auf Eduard gesetzt.
+- ❌→✅ 02.10.2026: OpenWrt-CI "Build Kernel / Check Kernel patches" rot auf
+  `ac4be590`: Backport 0093 lag im `git format-patch`-Format vor (Diffstat,
+  `diff --git`, Signatur, volle Funktionsnamen), nicht im per
+  `make target/linux/refresh` erzeugten quilt-Format. Auf das Refresh-Format
+  umgestellt (Inhalt identisch, 0401 unverändert gültig), PR-Head jetzt `47bc9143`.
