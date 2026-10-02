@@ -151,3 +151,20 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   `diff --git`, Signatur, volle Funktionsnamen), nicht im per
   `make target/linux/refresh` erzeugten quilt-Format. Auf das Refresh-Format
   umgestellt (Inhalt identisch, 0401 unverändert gültig), PR-Head jetzt `47bc9143`.
+
+## Review-Runde 02.10.2026 (robimarko: A/B-Slots bei sysupgrade)
+
+- firmware_qca-wireless#141 **gemergt** (01.10., robimarko, `6a0f508`); `main`
+  pinnt ipq-wifi bereits darauf.
+- robimarko: "You say that it basically has A/B partitions but always the same
+  one is being used for sysupgrade" (vorher schon openwrt-ai am 29.09.). Fix:
+  RE700X in den Dual-Slot-Fall von EAP650/Archer AX55 in `platform.sh`
+  (schreibt in den inaktiven Slot, setzt `tp_boot_idx`), U-Boot-Env in
+  uboot-envtools: `0:appsblenv` 0x0/0x40000/0x20000 (auf dem EG per
+  `fw_printenv -c` mit gültiger CRC verifiziert, `tp_boot_idx=0`).
+- Commit-Message: Installation aus der Stock-FW ehrlich als nicht Ende-zu-Ende
+  getestet markiert (UART für Erstinstallation empfohlen), Dual-Slot-sysupgrade
+  beschrieben.
+- Rebase auf `main` @ `93d8f58e` (Konflikt in uboot-envtools mit MR80X v2
+  aufgelöst, beide Einträge behalten). Test-Build Lauf #14, danach
+  Hardware-Test (zweimal sysupgrade, Slot muss wechseln). **Noch nicht gepusht.**

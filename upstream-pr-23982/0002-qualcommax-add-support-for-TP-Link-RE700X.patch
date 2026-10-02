@@ -1,4 +1,4 @@
-From 47bc9143eb91a6af621c4f1eba1a8e9c144359b5 Mon Sep 17 00:00:00 2001
+From 35873cfc2e6eb3f4f5b3ce52f72fc388cc5475cf Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH 2/2] qualcommax: add support for TP-Link RE700X
@@ -28,18 +28,24 @@ read-only in preinit like on the EAP650):
 Calibration data is extracted from the 0:art partition (IPQ5018 at
 0x1000, QCN6122 at 0x26800).
 
-Installation (no UART/soldering required):
-Flash openwrt-...-squashfs-factory-webflash.bin from the stock TP-Link web
-UI (System -> Firmware Upgrade). scripts/tplink-re700x-factory.py wraps the
-rootfs UBI into the stock "nvrammanager" upload container (the same
-"tplink2022"/safeloader family as scripts/tplink-mkimage-2022.py); the stock
-flasher writes it into the inactive dual-boot slot. Alternatively RAM-boot
-the initramfs via U-Boot/TFTP and run sysupgrade.
+Installation:
+- From OpenWrt (or after a RAM-boot of the initramfs via U-Boot/TFTP):
+  sysupgrade.
+- From the stock firmware: openwrt-...-squashfs-factory-webflash.bin via
+  the TP-Link web UI (System -> Firmware Upgrade).
+  scripts/tplink-re700x-factory.py wraps the rootfs UBI into the stock
+  "nvrammanager" upload container (the same "tplink2022"/safeloader
+  family as scripts/tplink-mkimage-2022.py); the stock flasher writes it
+  into the inactive dual-boot slot. This path has not been tested end to
+  end (no unit on stock firmware was left), so keep UART at hand for a
+  first install.
 
 The stock U-Boot passes a slot-correct ubi.mtd= (rootfs / rootfs_1 per the
 dual-boot index) but with an unmountable root=mtd:ubi_rootfs. The DTS /chosen
 inherits ubi.mtd= and appends root=/dev/ubiblock0_1, so OpenWrt boots from
-whichever slot the flasher wrote.
+whichever slot the flasher wrote. Like on the EAP650, sysupgrade installs
+into the inactive slot and then points tp_boot_idx at it, keeping the
+running slot as a fallback; the U-Boot environment is on 0:appsblenv.
 
 The QCN6122/IPQ5018 board-2.bin (BDF) data is supplied via
 ipq-wifi-tplink_re700x (openwrt/firmware_qca-wireless).
@@ -51,6 +57,7 @@ low-memory boards, once that has been accepted upstream.
 
 Signed-off-by: Eduard Hart <eduard.hart@etik.com>
 ---
+ .../uboot-envtools/files/qualcommax_ipq50xx   |   1 +
  package/firmware/ipq-wifi/Makefile            |   2 +
  scripts/tplink-re700x-factory.py              |  97 ++++++
  .../linux/qualcommax/dts/ipq5018-re700x.dts   | 308 ++++++++++++++++++
@@ -59,13 +66,25 @@ Signed-off-by: Eduard Hart <eduard.hart@etik.com>
  .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
  .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
  .../lib/preinit/09_mount_factory_data         |   3 +-
- .../base-files/lib/upgrade/platform.sh        |   5 +
- 9 files changed, 454 insertions(+), 3 deletions(-)
+ .../base-files/lib/upgrade/platform.sh        |   3 +-
+ 10 files changed, 452 insertions(+), 4 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
+diff --git a/package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq50xx b/package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq50xx
+index edc85362..ed506968 100644
+--- a/package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq50xx
++++ b/package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq50xx
+@@ -16,6 +16,7 @@ elecom,wrc-x3000gst2|\
+ glinet,gl-x2000|\
+ iodata,wn-dax3000gr|\
+ mercusys,mr80x-v2|\
++tplink,re700x|\
+ zyxel,scr50axe)
+ 	ubootenv_add_mtd "0:appsblenv" "0x0" "0x40000" "0x20000"
+ 	;;
 diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
-index de25103d..8318fadc 100644
+index 00294eed..c58198e6 100644
 --- a/package/firmware/ipq-wifi/Makefile
 +++ b/package/firmware/ipq-wifi/Makefile
 @@ -107,6 +107,7 @@ ALLWIFIBOARDS:= \
@@ -518,10 +537,10 @@ index 245dc76f..ca7966b4 100644
  
  $(eval $(call BuildImage))
 diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
-index 5cebb9a0..bb9d893b 100644
+index 5869a9fa..2d3d256d 100644
 --- a/target/linux/qualcommax/image/ipq50xx.mk
 +++ b/target/linux/qualcommax/image/ipq50xx.mk
-@@ -326,6 +326,25 @@ define Device/xiaomi_redmi-ax5400
+@@ -358,6 +358,25 @@ define Device/xiaomi_redmi-ax5400
  endef
  TARGET_DEVICES += xiaomi_redmi-ax5400
  
@@ -548,10 +567,10 @@ index 5cebb9a0..bb9d893b 100644
  	$(call Device/FitImage)
  	$(call Device/UbiFit)
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
-index 6c683651..12fa6265 100644
+index 8960a0be..f60208a4 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 +++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
-@@ -42,7 +42,8 @@ ipq50xx_setup_interfaces()
+@@ -43,7 +43,8 @@ ipq50xx_setup_interfaces()
  		ucidef_set_network_device_conduit "lan3" "eth1"
  		ucidef_set_network_device_conduit "wan" "eth0"
  		;;
@@ -561,7 +580,7 @@ index 6c683651..12fa6265 100644
  		ucidef_set_interface_lan "lan" "dhcp"
  		;;
  	esac
-@@ -66,7 +67,8 @@ ipq50xx_setup_macs()
+@@ -68,7 +69,8 @@ ipq50xx_setup_macs()
  		# DSA conduit's address on every boot - pin it to the label MAC
  		ucidef_set_network_device_mac "eth0" "$label_mac"
  		;;
@@ -572,10 +591,10 @@ index 6c683651..12fa6265 100644
  		[ -n "$label_mac" ] || return
  		ucidef_set_interface_macaddr "lan" "$label_mac"
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
-index b0911e21..5fa726d7 100644
+index 0cca1840..9c696f9a 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
 +++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
-@@ -65,6 +65,12 @@ case "$FIRMWARE" in
+@@ -71,6 +71,12 @@ case "$FIRMWARE" in
  		ath11k_patch_mac $label_mac 0
  		ath11k_set_macflag
  		;;
@@ -588,7 +607,7 @@ index b0911e21..5fa726d7 100644
  	xiaomi,ax6000|\
  	xiaomi,redmi-ax5400)
  		caldata_extract "0:art" 0x1000 0x20000
-@@ -123,6 +129,12 @@ case "$FIRMWARE" in
+@@ -135,6 +141,12 @@ case "$FIRMWARE" in
  		ath11k_set_macflag
  		ath11k_remove_regdomain
  		;;
@@ -616,21 +635,19 @@ index 00c84268..1a8d0be1 100644
  		ubiattach --dev-path="$mtd_path" --devn=1
  		mkdir /tmp/factory_data
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
-index 510f8e58..36b9a031 100644
+index 89bd727b..60fe6121 100644
 --- a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
 +++ b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
-@@ -266,6 +266,11 @@ platform_do_upgrade() {
- 		CI_DATA_UBIPART="rootfs"
- 		nand_do_upgrade "$1"
+@@ -268,7 +268,8 @@ platform_do_upgrade() {
+ 		nand_do_upgrade_success
  		;;
+ 	tplink,archer-ax55-v1|\
+-	tplink,eap650-outdoor-v1)
++	tplink,eap650-outdoor-v1|\
 +	tplink,re700x)
-+		CI_UBIPART="rootfs"
-+		remove_oem_ubi_volume ubi_rootfs
-+		nand_do_upgrade "$1"
-+		;;
- 	yuncore,ax830|\
- 	yuncore,ax850|\
- 	zyxel,scr50axe)
+ 		# Dual boot: install into the inactive rootfs/rootfs_1 slot,
+ 		# then point tp_boot_idx at it. The running slot is left
+ 		# untouched as a fallback - if the new image fails to load,
 -- 
 2.43.0
 
