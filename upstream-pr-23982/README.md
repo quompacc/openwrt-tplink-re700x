@@ -168,3 +168,7 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
 - Rebase auf `main` @ `93d8f58e` (Konflikt in uboot-envtools mit MR80X v2
   aufgelöst, beide Einträge behalten). Test-Build Lauf #14, danach
   Hardware-Test (zweimal sysupgrade, Slot muss wechseln). **Noch nicht gepusht.**
+- Lauf #14 scheiterte: `main` enthält den qpic-Fix inzwischen generisch
+  (`generic/backport-6.18/441-v7.4-…`, Johan Alvarado, identischer Inhalt), unser
+  0093 ließ sich deshalb nicht mehr anwenden. Backport-Commit entfernt, die
+  PR-Serie besteht jetzt nur noch aus dem Gerätecommit. Lauf #15.

@@ -1,7 +1,7 @@
-From 35873cfc2e6eb3f4f5b3ce52f72fc388cc5475cf Mon Sep 17 00:00:00 2001
+From 41a2a758e5de9f11411786744b53e6d22b0e90c6 Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
-Subject: [PATCH 2/2] qualcommax: add support for TP-Link RE700X
+Subject: [PATCH] qualcommax: add support for TP-Link RE700X
 
 TP-Link RE700X is a dual-band Wi-Fi 6 (AX3000) range extender based on
 Qualcomm IPQ5018 (2.4 GHz) with a QCN6122 (5 GHz) companion radio.
