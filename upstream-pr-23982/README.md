@@ -181,3 +181,7 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   Vorher `/etc/config/ubootenv` gelöscht (leer aus älteren Images, sonst würde
   die envtools-Konfiguration bei "Einstellungen behalten" nicht erzeugt).
 - ✅ 02.10.2026: PR #23982 auf `41a2a758` aktualisiert (nur noch Gerätecommit).
+- 03.10.2026: noch offene Review-Nits umgesetzt: `Build/tplink-re700x-factory`
+  von `image/Makefile` nach `image/ipq50xx.mk` verschoben (robimarko: "This
+  should live in ipq50xx.mk"), `Device/tplink_re700x` alphabetisch nach
+  `tplink_eap650-outdoor-v1` einsortiert (openwrt-ai nit). Lauf #16. Noch nicht gepusht.

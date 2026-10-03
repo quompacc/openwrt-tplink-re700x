@@ -1,4 +1,4 @@
-From 41a2a758e5de9f11411786744b53e6d22b0e90c6 Mon Sep 17 00:00:00 2001
+From 1f5a2be01c4d7a30a556158ede8b41af8b47b274 Mon Sep 17 00:00:00 2001
 From: Eduard Hart <eduard.hart@etik.com>
 Date: Mon, 29 Jun 2026 19:43:57 +0200
 Subject: [PATCH] qualcommax: add support for TP-Link RE700X
@@ -61,13 +61,12 @@ Signed-off-by: Eduard Hart <eduard.hart@etik.com>
  package/firmware/ipq-wifi/Makefile            |   2 +
  scripts/tplink-re700x-factory.py              |  97 ++++++
  .../linux/qualcommax/dts/ipq5018-re700x.dts   | 308 ++++++++++++++++++
- target/linux/qualcommax/image/Makefile        |   5 +
- target/linux/qualcommax/image/ipq50xx.mk      |  19 ++
+ target/linux/qualcommax/image/ipq50xx.mk      |  24 ++
  .../ipq50xx/base-files/etc/board.d/02_network |   6 +-
  .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
  .../lib/preinit/09_mount_factory_data         |   3 +-
  .../base-files/lib/upgrade/platform.sh        |   3 +-
- 10 files changed, 452 insertions(+), 4 deletions(-)
+ 9 files changed, 452 insertions(+), 4 deletions(-)
  create mode 100755 scripts/tplink-re700x-factory.py
  create mode 100644 target/linux/qualcommax/dts/ipq5018-re700x.dts
 
@@ -520,12 +519,12 @@ index 00000000..79111058
 +
 +	ieee80211-freq-limit = <5150000 5730000>;
 +};
-diff --git a/target/linux/qualcommax/image/Makefile b/target/linux/qualcommax/image/Makefile
-index 245dc76f..ca7966b4 100644
---- a/target/linux/qualcommax/image/Makefile
-+++ b/target/linux/qualcommax/image/Makefile
-@@ -36,6 +36,11 @@ define Device/UbiFit
- 	IMAGE/factory.ubi := append-ubi
+diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
+index 5869a9fa..59870d0d 100644
+--- a/target/linux/qualcommax/image/ipq50xx.mk
++++ b/target/linux/qualcommax/image/ipq50xx.mk
+@@ -30,6 +30,11 @@ define Build/mercusys-fwup
+ 	mv $@.new $@
  endef
  
 +define Build/tplink-re700x-factory
@@ -533,16 +532,12 @@ index 245dc76f..ca7966b4 100644
 +	mv $@.factory $@
 +endef
 +
- include $(SUBTARGET).mk
- 
- $(eval $(call BuildImage))
-diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
-index 5869a9fa..2d3d256d 100644
---- a/target/linux/qualcommax/image/ipq50xx.mk
-+++ b/target/linux/qualcommax/image/ipq50xx.mk
-@@ -358,6 +358,25 @@ define Device/xiaomi_redmi-ax5400
+ define Device/cmcc_mr3000d-ci
+ 	$(call Device/FitImageLzma)
+ 	$(call Device/UbiFit)
+@@ -319,6 +324,25 @@ define Device/tplink_eap650-outdoor-v1
  endef
- TARGET_DEVICES += xiaomi_redmi-ax5400
+ TARGET_DEVICES += tplink_eap650-outdoor-v1
  
 +define Device/tplink_re700x
 +	$(call Device/FitImage)
@@ -563,7 +558,7 @@ index 5869a9fa..2d3d256d 100644
 +endef
 +TARGET_DEVICES += tplink_re700x
 +
- define Device/yuncore_ax830
+ define Device/xiaomi_ipq50xx_ax_base
  	$(call Device/FitImage)
  	$(call Device/UbiFit)
 diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
