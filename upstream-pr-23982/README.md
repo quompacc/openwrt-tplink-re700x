@@ -185,3 +185,4 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   von `image/Makefile` nach `image/ipq50xx.mk` verschoben (robimarko: "This
   should live in ipq50xx.mk"), `Device/tplink_re700x` alphabetisch nach
   `tplink_eap650-outdoor-v1` einsortiert (openwrt-ai nit). Lauf #16. Noch nicht gepusht.
+- ✅ 03.10.2026: Lauf #16 grün (factory-webflash.bin erzeugt, ipq-wifi aus 6a0f508b); PR #23982 auf `1f5a2be0` aktualisiert.
