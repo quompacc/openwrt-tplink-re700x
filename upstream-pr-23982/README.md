@@ -186,3 +186,12 @@ LuCI-Pakete wie die re700x-Releases). Ergebnis: Artifact
   should live in ipq50xx.mk"), `Device/tplink_re700x` alphabetisch nach
   `tplink_eap650-outdoor-v1` einsortiert (openwrt-ai nit). Lauf #16. Noch nicht gepusht.
 - ✅ 03.10.2026: Lauf #16 grün (factory-webflash.bin erzeugt, ipq-wifi aus 6a0f508b); PR #23982 auf `1f5a2be0` aktualisiert.
+
+## 🎉 Gemergt (03.10.2026)
+
+PR #23982 ist in `openwrt/main` aufgenommen: Commit `a20047f6`
+"qualcommax: add support for TP-Link RE700X" (Autor Eduard Hart, committet von
+Robert Marko, `Link: https://github.com/openwrt/openwrt/pull/23982`). Inhalt
+identisch mit dem PR-Stand `1f5a2be0`. Damit erscheint der RE700X in den
+Snapshots von qualcommax/ipq50xx (WLAN noch aus, bis der ath11k-Patch angenommen
+ist und der WLAN-Folge-PR folgt).
