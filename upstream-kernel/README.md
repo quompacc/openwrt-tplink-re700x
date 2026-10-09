@@ -5,6 +5,8 @@
 > linux-kernel@vger.kernel.org.
 > Message-ID: `<20260930165052.4998-1-eduard.hart@etik.com>`
 > Archiv: https://lore.kernel.org/all/20260930165052.4998-1-eduard.hart@etik.com/
+> Patchwork (09.10.2026): State **New**, Delegate **jjohnson**:
+> https://patchwork.kernel.org/m/20260930165052.4998-1-eduard.hart@etik.com/
 
 `0001-wifi-ath11k-use-smaller-DP-rings-on-low-memory-syste.patch` bringt die
 Speicherreduktion für 256-MB-Geräte in den offiziellen Linux-Kernel. Darum hat
