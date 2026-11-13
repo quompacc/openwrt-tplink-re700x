@@ -195,3 +195,15 @@ Robert Marko, `Link: https://github.com/openwrt/openwrt/pull/23982`). Inhalt
 identisch mit dem PR-Stand `1f5a2be0`. Damit erscheint der RE700X in den
 Snapshots von qualcommax/ipq50xx (WLAN noch aus, bis der ath11k-Patch angenommen
 ist und der WLAN-Folge-PR folgt).
+
+## Community-Test: Installation aus der Stock-Firmware bestätigt (Nov. 2026)
+
+Kommentar in PR #23982 (nach dem Merge) von einem unabhängigen Nutzer:
+- RE700X EU v1.0, Stock **1.3.15 Build 20251124 Rel. 43984** →
+  `squashfs-factory-webflash.bin` über die TP-Link-Weboberfläche: **Installation
+  erfolgreich**, Factory-Packer unverändert. Damit ist der bisher nicht
+  Ende-zu-Ende getestete Weg bestätigt.
+- Basis OpenWrt main `30a23ae4516`, `&wifi`/`&wifi1` aktiviert, ath11k-DP-Ring-Patch
+  aus `quompacc/openwrt` `re700x-wifi-followup`: Ethernet, LuCI, SSH, **beide
+  WLAN-Bänder mit Clients**, Einstellungen bleiben nach Reboot. Langzeit- und
+  Durchsatztests laut Tester noch offen.
