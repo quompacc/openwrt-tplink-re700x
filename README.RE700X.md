@@ -73,10 +73,11 @@ labelled). Use a 3.3 V adapter and leave VCC disconnected.
 > **Check the resistor next to TX first.** On the unit this port was developed
 > on, the series resistor at **R49** (directly below the TX pad, see photo) was
 > fitted from the factory, and soldering on header pins was all it took to get
-> a console (U-Boot banner, break with `tpl`). A community tester's unit
-> (Nov 2026) had that resistor position **empty**: even after bridging a
-> footprint there, the board printed nothing and only echoed the typed
-> characters back. So boards are not all populated the same way. Before you
+> a console (U-Boot banner, break with `tpl`). On a community tester's unit
+> (Nov 2026) R49 was **missing**, so the board printed nothing and only echoed
+> the typed characters back. Its pads look like a part was there and came off,
+> so it may have been knocked off while soldering the TX wire: R49 sits right
+> next to the TX pad, so solder there quickly and carefully. Before you
 > rely on UART as a recovery path, power the device and measure the TX pad
 > against GND: an idle UART TX sits at about 3.3 V. If the pad reads 0 V or
 > floats, the TX path is not connected on your board.
