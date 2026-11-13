@@ -10,10 +10,11 @@ tree; this README covers only the RE700X-specific port.
 > `ubi.mtd=rootfs`) attaching the **wrong** dual-boot slot when the flasher wrote
 > OpenWrt into `rootfs_1` and set `tp_boot_idx=1` — is resolved. OpenWrt now boots
 > from **either** slot, validated on hardware from both `rootfs` and `rootfs_1`.
-> The *literal* stock→web-GUI reproduction is still pending (the official firmware
-> is AES-encrypted and the stock NAND backup was lost), so for a **first** flash
-> from stock it remains prudent to have UART + a NAND backup until that final
-> end-to-end check is done. This bootloader has **no button/TFTP recovery**. See
+> ✅ Since Nov 2026 the stock→web-GUI install is now **confirmed end-to-end** by a community tester (Ruben, Nov 2026): RE700X EU v1.0 on stock **1.3.15 Build 20251124**, `squashfs-factory-webflash.bin` uploaded via System → Firmware Upgrade, OpenWrt booted, both Wi-Fi bands working
+> (reported in openwrt/openwrt#23982).
+> That test used an OpenWrt-main build with the same factory container as
+> `re700x-factory-pack.py`. This bootloader still has **no button/TFTP recovery**,
+> so a NAND backup before the first flash is cheap insurance. See
 > §*The dual-boot brick fix* and §*Install from stock*.
 
 ## What works
@@ -26,7 +27,7 @@ tree; this README covers only the RE700X-specific port.
 | 2.4 GHz Wi-Fi 6 (IPQ5018) | ✅ |
 | 5 GHz Wi-Fi 6 (QCN6122) | ✅ |
 | Both radios simultaneously | ✅ (needs the ath11k DP-ring shrink — see *RAM note*) |
-| Web-UI-flashable factory image | ✅ brick fixed (v1.5); literal stock→web-GUI re-test pending |
+| Web-UI-flashable factory image | ✅ brick fixed (v1.5); stock→web-GUI install confirmed (community test, Nov 2026) |
 
 Both radios run simultaneously and stay stable **thanks to the ath11k DP-ring-size
 patch** — ~48 MB free on the 256 MB device. Without that patch the oversized RX
@@ -88,16 +89,16 @@ Output in `bin/targets/qualcommax/ipq50xx/`:
 - `…tplink_re700x-squashfs-factory.ubi` — raw UBI for initial install
 - `…tplink_re700x-initramfs-uImage.itb` — RAM boot via U-Boot/TFTP (for testing)
 
-## Install from stock via web GUI (EXPERIMENTAL — have UART ready)
+## Install from stock via web GUI
 
 > ✅ **The brick that hit a second unit is fixed (v1.5)** — see §*The dual-boot
 > brick fix*. The cause (the forced kernel cmdline attaching the wrong dual-boot
 > slot) is resolved, and OpenWrt now boots from whichever slot the flasher writes
-> (validated on hardware from both slots). The *literal* stock→web-GUI install
-> hasn't been re-run end-to-end yet (official firmware is AES-encrypted; the stock
-> backup was lost), so for the **first** flash on a given unit it's still prudent
-> to have UART + a full NAND backup. This bootloader has **no button/TFTP
-> recovery**. Recover a mis-set boot slot via UART: `setenv tp_boot_idx 0; saveenv`.
+> (validated on hardware from both slots). ✅ **Confirmed end-to-end (Nov 2026):**
+> a community tester installed OpenWrt from stock **1.3.15 Build 20251124** this
+> way, unchanged packer, both Wi-Fi bands working. This bootloader has **no
+> button/TFTP recovery**, so a NAND backup is still cheap insurance. Recover a
+> mis-set boot slot via UART: `setenv tp_boot_idx 0; saveenv`.
 
 The flow — flash from the **stock** TP-Link web interface:
 
@@ -173,12 +174,10 @@ can't mount. The kernel now inherits that slot-correct `ubi.mtd` and our appende
 `root=/dev/ubiblock0_1` wins (Linux uses the last `root=`). Result, verified on
 hardware: OpenWrt boots cleanly from **both** slots, both radios up.
 
-**Caveat:** the *literal* stock→web-GUI install was not re-run this round (the
-official firmware is AES-encrypted "Cloud" type and the stock NAND backup was
-lost). The slot the web-GUI flasher writes is byte-identical to what was tested
-(`nvrammanager` does `ubiformat -o 0x1814 -S <field0>` of the same payload + the
-same `tp_boot_idx`), so it's logically covered — but a full stock-device web-GUI
-flash remains the final confirmation.
+**Confirmed (Nov 2026):** the full stock→web-GUI install has since been done
+end-to-end by a community tester (stock 1.3.15 Build 20251124 → OpenWrt main
+build with the same factory container, both Wi-Fi bands up; reported in
+openwrt/openwrt#23982).
 
 ## The 5 GHz / QCN6122 fix (for other IPQ5018+QCN6122 ports)
 
@@ -204,12 +203,11 @@ versioned images.
       it inherits the stock U-Boot's slot-correct `ubi.mtd` and appends `root=`
       via the DTS `/chosen` `bootargs-append`, instead of forcing `ubi.mtd=rootfs`.
       Validated on hardware booting cleanly from both `rootfs` and `rootfs_1`.
-- [~] Factory image flashable from the stock TP-Link web UI (no soldering) —
-      `re700x-factory-pack.py` works and the brick is fixed; the *literal*
-      stock→web-GUI install still needs one final end-to-end re-test (blocked this
-      round: official firmware is AES-encrypted, stock NAND backup lost).
-- [ ] Fix sysupgrade slot-awareness: `platform.sh` always writes
-      `CI_UBIPART=rootfs` (slot 0), ignoring the booted slot.
+- [x] Factory image flashable from the stock TP-Link web UI (no soldering) —
+      confirmed end-to-end by a community tester (stock 1.3.15, Nov 2026).
+- [x] Fix sysupgrade slot-awareness: done in upstream OpenWrt (`a20047f6`,
+      installs into the inactive slot and sets `tp_boot_idx`, tested on
+      hardware). The v1.5 image in this repo still always writes `rootfs`.
 - [ ] Integrate the `FwUpTbl` format into `tplink-safeloader` so `make` emits a
       ready-to-flash `factory.bin` directly (instead of the separate packer).
 - [ ] WPA3 (SAE) defaults.

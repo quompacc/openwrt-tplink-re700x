@@ -19,10 +19,9 @@
 > `bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=4M"` to the DTS
 > `/chosen`; the kernel inherits the slot-correct `ubi.mtd` and the appended
 > `root=` wins. Verified on hardware: OpenWrt boots cleanly from **both** slots.
-> **Still pending:** the literal stock→web-GUI re-test (official firmware is
-> AES-encrypted "Cloud"; the stock NAND backup was lost) — logically covered, since
-> `nvrammanager` writes the slot byte-identically to what was tested (`ubiformat
-> -o 0x1814 -S <field0>`) and sets the same `tp_boot_idx`. `sysupgrade` is unaffected.
+> ✅ **Stock→web-GUI re-test done (Nov 2026):** a community tester flashed from
+> stock **1.3.15 Build 20251124** via the web GUI with the unchanged packer and
+> booted into a working OpenWrt (both Wi-Fi bands). `sysupgrade` is unaffected.
 
 ---
 

@@ -7,11 +7,22 @@ the `squashfs-sysupgrade.bin` built from that commit. Doc-only changes
 stays valid across later documentation commits.
 
 > ✅ **The dual-boot brick is FIXED as of v1.5** — OpenWrt now boots from either
-> flash slot, validated on real hardware. The *literal* stock web-GUI
-> reproduction is still pending (the official firmware is AES-encrypted and the
-> stock NAND backup was lost), so for the very first flash from stock keep UART
-> + a NAND backup handy until someone re-runs a full stock→web-GUI install.
-> `sysupgrade` (OpenWrt→OpenWrt) is safe. See `README.RE700X.md`.
+> flash slot, validated on real hardware. ✅ **Stock→web-GUI install confirmed
+> (Nov 2026)** by a community tester: stock 1.3.15 Build 20251124 → OpenWrt via
+> System → Firmware Upgrade, both Wi-Fi bands working. `sysupgrade`
+> (OpenWrt→OpenWrt) is safe. See `README.RE700X.md`.
+
+## Upstream — 2026-10/11 (no new image in this repo)
+
+- **In OpenWrt main** since 2026-10-03 (`a20047f6`, PR openwrt/openwrt#23982),
+  with a slot-aware sysupgrade (inactive slot + `tp_boot_idx`); board files in
+  firmware_qca-wireless (`6a0f508`). Wi-Fi stays off upstream until the ath11k
+  low-memory DP ring patch is accepted (sent 2026-09-30, see `upstream-kernel/`).
+- **Community test (Nov 2026):** stock **1.3.15 Build 20251124** →
+  `squashfs-factory-webflash.bin` via the stock web UI works with the unchanged
+  packer; with Wi-Fi enabled and the DP ring patch from `re700x-wifi-followup`,
+  Ethernet, LuCI, SSH and both bands work with clients, settings survive a
+  reboot. Long-term and throughput results still pending.
 
 ## v1.5 — 2026-06-28 (tag `re700x-v1.5`)
 

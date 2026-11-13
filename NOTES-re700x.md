@@ -734,6 +734,15 @@ logically covered - `nvrammanager` does `ubiformat /dev/mtd<inactive> -o 0x1814
 sets the same `tp_boot_idx` - but a full stock-device web-GUI flash remains the
 final belt-and-suspenders check.
 
+**Update Nov 2026: done.** A community tester (Ruben, report in
+openwrt/openwrt#23982) installed OpenWrt from stock **1.3.15 Build 20251124
+Rel. 43984** through the stock web UI with the unchanged packer (OpenWrt main
+`30a23ae4516` build, Wi-Fi enabled + DP ring patch): boots, Ethernet, LuCI, SSH,
+both bands with clients, settings persist.
+
 ### Latent follow-up
 `platform.sh` sysupgrade always sets `CI_UBIPART=rootfs` (slot 0), ignoring the
 booted slot - if you run from slot 1 and sysupgrade, it writes the wrong slot.
+**Fixed upstream** (OpenWrt main `a20047f6`): RE700X joins the EAP650/Archer
+AX55 dual-slot case, U-Boot env `0:appsblenv` 0x0/0x40000/0x20000; tested
+rootfs -> rootfs_1 -> rootfs on hardware (2026-10-02). Not in the v1.5 image.
