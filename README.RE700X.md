@@ -70,6 +70,17 @@ ath11k DP rings (TX-comp 32768→2048, RXDMA-buf 4096→1024, monitor rings
 RF-shield edge; pads top-to-bottom are **TX, RX, GND, VCC** (silkscreen
 labelled). Use a 3.3 V adapter and leave VCC disconnected.
 
+> **Check the resistor next to TX first.** On the unit this port was developed
+> on, the series resistor at **R49** (directly below the TX pad, see photo) was
+> fitted from the factory, and soldering on header pins was all it took to get
+> a console (U-Boot banner, break with `tpl`). A community tester's unit
+> (Nov 2026) had that resistor position **empty**: even after bridging a
+> footprint there, the board printed nothing and only echoed the typed
+> characters back. So boards are not all populated the same way. Before you
+> rely on UART as a recovery path, power the device and measure the TX pad
+> against GND: an idle UART TX sits at about 3.3 V. If the pad reads 0 V or
+> floats, the TX path is not connected on your board.
+
 ![RE700X UART header — TX / RX / GND / VCC top-to-bottom](doc/re700x-uart-header.jpg)
 
 ## Building
