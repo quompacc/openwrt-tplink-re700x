@@ -50,6 +50,7 @@ writes, killing the stock-web-GUI brick.
   lost). It's logically covered — `nvrammanager` writes the slot byte-identically
   to what was tested and sets the same `tp_boot_idx` — but a real stock-device
   web-GUI flash remains the final belt-and-suspenders check.
+  *Update Nov 2026: done by a community tester, see "Upstream — 2026-10/11".*
 - sha256 (sysupgrade): see the release's `SHA256SUMS` (CI-built).
 
 ## v1.4 — 2026-05-31 (tag `re700x-v1.4`)
